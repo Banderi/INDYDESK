@@ -249,15 +249,6 @@ enum TileFlags {
 	is_arrow = 1 << 17
 	is_machete = 1 << 18
 	is_whip = 1 << 19
-	
-#	is_edible_yoda = 1 << 32
-#	is_low_blaster = 1 << 33
-#	is_high_blaster = 1 << 34
-#	is_lightsaber = 1 << 35
-#	is_the_force = 1 << 36
-#	is_hero_yoda = 1 << 37
-#	is_enemy_yoda = 1 << 38
-#	is_npc_yoda = 1 << 39
 }
 func get_applied_flags(value, enums):
 	var flags = []
@@ -554,7 +545,7 @@ func get_sprite(i):
 	if i == -1:
 		return
 	return load("res://assets/indy/tile"+str(i)+".png")
-func generate_tileset(tile_set):
+func generate_tileset(tile_set : TileSet):
 	tile_set.clear()
 	
 	var square_collider = RectangleShape2D.new()
@@ -631,6 +622,8 @@ func spawn_object(tile_id, x, y):
 	obj.position = to_vector(Vector2(x,y))
 	obj.tile_id = tile_id
 	WALL_TILES.add_child(obj)
+func spawn_monster(char_id, x, y):
+	pass
 
 func get_tile_data(tile_id):
 	return SECTIONS.TILE[tile_id]
@@ -638,42 +631,42 @@ func get_tile_data(tile_id):
 var FLOOR_TILES : TileMap = null
 var WALL_TILES : TileMap = null
 var ROOF_TILES : TileMap = null
-func load_zone(id, position = Vector2()):
-	var zone_data = SECTIONS.ZONE[id]
+func clear_zone():
 	FLOOR_TILES.clear()
 	WALL_TILES.clear()
 	ROOF_TILES.clear()
-	for n in WALL_TILES.get_children():
-		n.queue_free()
+	for obj in get_tree().get_nodes_in_group("objects"):
+		obj.queue_free()
+func load_zone(id, map_origin = Vector2(), clear = true):
+	if clear:
+		clear_zone()
+	var zone_data = SECTIONS.ZONE[id]
 	for y in zone_data.height:
 		for x in zone_data.width:
 			var tile_layers = zone_data.tiles[y * zone_data.width + x]
+			var world_tile_coords = Vector2(x, y) + map_origin
 			
-			FLOOR_TILES.set_cell(x, y, tile_layers.x)
-			
+			# for object (wall) tiles, only set the tilemap for non-moveable walls
 			var tile = tile_layers.y
 			if tile != -1 && get_tile_data(tile).flags & TileFlags.is_draggable:
 				spawn_object(tile, x, y)
 			else:
-				WALL_TILES.set_cell(x, y, tile_layers.y)
-				
-#			WALL_TILES.set_cell(x, y, tile_layers.y)
-			ROOF_TILES.set_cell(x, y, tile_layers.z)
+				WALL_TILES.set_cellv(world_tile_coords, tile_layers.y)
+			
+			# for floor and roof (ceiling) tiles, go ahead
+			FLOOR_TILES.set_cellv(world_tile_coords, tile_layers.x)
+			ROOF_TILES.set_cellv(world_tile_coords, tile_layers.z)
 	return zone_data
 func is_tile_obstructed(tile):
-	var tile_id = WALL_TILES.get_cellv(tile)
-	if tile_id != -1:
+	var flood_id = FLOOR_TILES.get_cellv(tile)
+	if flood_id == -1:
+		return true
+	var wall_id = WALL_TILES.get_cellv(tile)
+	if wall_id != -1:
 		return true
 	if get_object_at(tile) != null:
 		return true
 	return false
-#func is_moveable(tile):
-#	var tile_id = WALL_TILES.get_cellv(tile)
-#	if tile_id == -1:
-#		return false
-#	if get_tile_data(tile_id).flags & TileFlags.is_draggable:
-#		return true
-#	return false
 func get_object_at(tile):
 	for obj in get_tree().get_nodes_in_group("objects"):
 		if to_tile(obj.position) == tile:

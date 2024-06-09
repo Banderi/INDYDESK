@@ -1,16 +1,13 @@
 extends Control
 
+onready var HERO = $Walls/HERO
+onready var tile_set = $Floor.tile_set
+onready var attack_spritesheet = HERO.attack_spritesheet
+
 func load_indy():
 	Game.load_daw("E:/Games/INDYDESK/DESKTOP.DAW")
-	Game.generate_tileset($Floor.tile_set)
-	Game.generate_spritesheets($HERO.attack_spritesheet)
-#	$Sprite.texture = texture_from_data(Game.SECTIONS["STUP"], 288, 288, PALETTE_INDY)
-
-
-#	hero sprites
-	$HERO.sprite.frames = Game.SECTIONS.CHAR.HERO.sprites
-	$HERO.sprite.disconnect("animation_finished", $HERO, "_on_Character_animation_finished")
-	$HERO.sprite.connect("animation_finished", $HERO, "_on_Character_animation_finished")
+	Game.generate_tileset(tile_set)
+	Game.generate_spritesheets(attack_spritesheet)
 
 func load_zone(id):
 	var zone_data = Game.load_zone(id)
@@ -64,27 +61,40 @@ func _ready():
 	Game.WALL_TILES = $Walls
 	Game.ROOF_TILES = $Ceiling
 	load_indy()
-	load_zone(0)
+	Game.load_zone(120)
+#	load_zone(121)
+	
+#	$SplashScreen.texture = texture_from_data(Game.SECTIONS["STUP"], 288, 288, PALETTE_INDY)
+	
+#	hero sprites
+	HERO.sprite.frames = Game.SECTIONS.CHAR.HERO.sprites
+	HERO.sprite.disconnect("animation_finished", HERO, "_on_Character_animation_finished")
+	HERO.sprite.connect("animation_finished", HERO, "_on_Character_animation_finished")
 
 # Called every frame. 'delta' is the elapsed time since the previous frame.
-func _process(_delta):
-	$Label2.text = "state: %s\n" % [Log.get_enum_string($HERO.States, $HERO.state)]
-	$Label2.text += "tile_current: %s\n" % [$HERO.tile_current]
-	$Label2.text += "tile_target: %s\n" % [$HERO.tile_target]
-	$Label2.text += "linked_object: %s\n" % [$HERO.linked_object]
+func _process(delta):
+	$UI/Label2.text = "state: %s\n" % [Log.get_enum_string(HERO.States, HERO.state)]
+	$UI/Label2.text += "tile_current: %s\n" % [HERO.tile_current]
+	$UI/Label2.text += "tile_target: %s\n" % [HERO.tile_target]
+	$UI/Label2.text += "linked_object: %s\n" % [HERO.linked_object]
 	
-	$ColorRect.rect_position = Game.to_vector($HERO.tile_target)
-	$ColorRect2.rect_position = Game.to_vector($HERO.tile_current)
+	$ColorRect.rect_position = Game.to_vector(HERO.tile_target)
+	$ColorRect2.rect_position = Game.to_vector(HERO.tile_current)
+	
+#	HERO.position += Vector2(2.0*randf()-1.0,2.0*randf()-1.0) * 25.0
 
 
 func _on_Button_pressed():
+#	Game.load_zone(120)
+#	Game.load_zone(121, Vector2(0, -18))
 #	generate_tileset()
 #	generate_spritesheets()
 #	load_indy()
 #	$SpinBox.value = 0
 #	for n in $ScrollContainer/VBoxContainer.get_children():
 #		save_texture(n.texture, "")
-	load_zone(0)
+#	load_zone(120)
+	pass
 
 
 func _on_SpinBox_value_changed(value):

@@ -1,0 +1,12 @@
+assets/*/*.png
+
+# Godot-specific ignores
+build/
+.import/
+**/*.*.import
+*.lnk
+export.cfg
+export_presets.cfg
+
+# Mono-specific ignores
+.mono/

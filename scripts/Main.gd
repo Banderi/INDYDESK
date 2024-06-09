@@ -608,7 +608,6 @@ func generate_spritesheets():
 		
 #	hero sprites
 	$HERO.sprite.frames = SECTIONS.CHAR.HERO.sprites
-	$HERO.play_anim("idle_S")
 	$HERO.sprite.disconnect("animation_finished", $HERO, "_on_Character_animation_finished")
 	$HERO.sprite.connect("animation_finished", $HERO, "_on_Character_animation_finished")
 
@@ -704,16 +703,15 @@ func load_zone(id):
 
 # Called when the node enters the scene tree for the first time.
 func _ready():
+	Game.wall_tiles = $Walls
 	load_indy()
 	load_zone(0)
 
 # Called every frame. 'delta' is the elapsed time since the previous frame.
 func _process(_delta):
 	$Label2.text = "state: %s\n" % [Log.get_enum_string($HERO.States, $HERO.state)]
-	$Label2.text += "movement: %s\n" % [$HERO.movement]
 	$Label2.text += "tile_current: %s\n" % [$HERO.tile_current]
 	$Label2.text += "tile_target: %s\n" % [$HERO.tile_target]
-	$Label2.text += "position_excess: %s\n" % [($HERO.to_vector($HERO.tile_target)) - $HERO.position]
 	
 	$ColorRect.rect_position = $HERO.to_vector($HERO.tile_target)
 	$ColorRect2.rect_position = $HERO.to_vector($HERO.tile_current)

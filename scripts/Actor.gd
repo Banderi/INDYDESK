@@ -1,6 +1,5 @@
 extends Node2D
 
-onready var attack_spritesheet = $Attack_E.frames
 onready var sprite = $Character
 
 func play_anim(anim, directional = true):
@@ -38,7 +37,7 @@ func link_object(obj):
 		obj.linked_actor = self
 		obj.reparent(self)
 	linked_object = obj
-func check_unobstructed_movement(moved_input):
+func attempt_moving_into(moved_input):
 	var target_is_obstructed = Game.is_tile_obstructed(tile_current + moved_input)
 	var is_diagonal = moved_input.x != 0 && moved_input.y != 0
 	
@@ -101,7 +100,7 @@ func do_movement(delta):
 				
 				# if an input is attempted, follow up on it
 				if moved_input != Vector2():
-					moved_input = check_unobstructed_movement(moved_input)
+					moved_input = attempt_moving_into(moved_input)
 					
 					# correct direction depending on actual movement
 					if moved_input.x == -1:
@@ -151,6 +150,10 @@ func _process(delta):
 
 # Called when the node enters the scene tree for the first time.
 func _ready():
+	$Attack_N.frames = Game.ATTACK_SPRITESHEET
+	$Attack_S.frames = Game.ATTACK_SPRITESHEET
+	$Attack_W.frames = Game.ATTACK_SPRITESHEET
+	$Attack_E.frames = Game.ATTACK_SPRITESHEET
 	position = Game.to_vector(tile_target)
 
 func _on_Character_animation_finished():

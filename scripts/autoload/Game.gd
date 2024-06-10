@@ -7,18 +7,10 @@ func round_vector(vector):
 	vector.x = round(vector.x)
 	vector.y = round(vector.y)
 	return vector
-	
-func to_tile(vector, rounded = true):
-	var tile = (vector - Vector2(16,16)) / 32.0
-	if rounded:
-		tile = round_vector(tile)
-	return tile
-func to_vector(tile):
-	return (tile * 32.0) + Vector2(16,16)
+func signed_u16(v):
+	return -1 if v == 65535 else v
 
-
-
-
+# Palettes
 const PALETTE_INDY = [
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -83,8 +75,7 @@ const PALETTE_INDY = [
 	0x0B, 0x73, 0xFB, 0x00, 0x0B, 0x4B, 0xFB, 0x00, 0x0B, 0x23, 0xFB, 0x00, 0x0B, 0x73, 0xFB, 0x00,
 	0x00, 0x13, 0x93, 0x00, 0x00, 0x0B, 0xD3, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0x00
-]
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0x00]
 const PALETTE_YODA = [
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
@@ -149,10 +140,10 @@ const PALETTE_YODA = [
 	0x0B, 0x73, 0xFB, 0x00, 0x0B, 0x4B, 0xFB, 0x00, 0x0B, 0x23, 0xFB, 0x00, 0x0B, 0x73, 0xFB, 0x00, 
 	0x00, 0x13, 0x93, 0x00, 0x00, 0x0B, 0xD3, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0x00
-]
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0x00]
 
-enum ZonesYoda {
+# Game enums
+enum Zones {
 	None = 0
 	Empty = 1
 	Blockade_North = 2
@@ -171,9 +162,8 @@ enum ZonesYoda {
 	Trade = 15
 	Use = 16
 	Find = 17
-	Find_Weapon = 18
-}
-enum HotspotsYoda {
+	Find_Weapon = 18}
+enum Hotspots {
 	drop_quest_item = 0
 	spawn_location = 1
 	drop_unique_weapon = 2
@@ -189,8 +179,7 @@ enum HotspotsYoda {
 	lock = 12
 	teleporter = 13
 	ship_to_planet = 14
-	ship_from_planet = 15
-}
+	ship_from_planet = 15}
 enum TileFlags {
 	has_transparency = 1 << 0
 	is_floor = 1 << 1
@@ -248,9 +237,18 @@ enum TileFlags {
 	is_luger = 1 << 16						# luger, bullet
 	is_arrow = 1 << 17
 	is_machete = 1 << 18
-	is_whip = 1 << 19
-}
-func get_applied_flags(value, enums):
+	is_whip = 1 << 19}
+enum CharacterType {
+	hero = 1
+	enemy = 2
+	weapon = 4}
+enum MovementType {
+	none = 0
+	sit = 4
+	wander = 9
+	patrol = 10
+	animation = 12}
+func value_list_flags(value, enums):
 	var flags = []
 	var enum_names = enums.keys()
 	for enm in enum_names:
@@ -259,243 +257,27 @@ func get_applied_flags(value, enums):
 			flags.push_back(enm)
 	return flags
 
-enum CharacterType {
-	hero = 1
-	enemy = 2
-	weapon = 4
+# Game data loading
+var DATA = {
+	"sounds": [],
+	"tiles": [],
+	"zones": [],
+	"puzzles": [],
+	"characters": {},
+	"actions": {}
 }
-enum MovementType {
-	none = 0
-	sit = 4
-	wander = 9
-	patrol = 10
-	animation = 12
-}
-
-var DAW = DataFile.new()
-var SECTIONS = {}
 func assert_marker(marker):
 	assert(DAW.get_buffer(4).get_string_from_ascii() == marker)
-func signed_u16(v):
-	return -1 if v == 65535 else v
-func compound_subsection(type, end_of_section, subs_name = ""):
-	var compound_data = []
-	var num_subs = 0
-	match type:
-		-2: # variable-size strings plus unkn. header: i16 + n*(i16 -> <str>) --- SNDS
-			var _unk_num = DAW.get_16()
-			while DAW.get_position() < end_of_section:
-				var subs_size = DAW.get_16()
-				compound_data.push_back(DAW.read(str("str",subs_size)).value)
-				num_subs += 1
-		-1: # i32 flags plus 32x32 bitmap --- TILE
-			while DAW.get_position() < end_of_section:
-				compound_data.push_back({
-					"flags": DAW.get_32(),
-					"bmp": DAW.read(1024).value
-				})
-				num_subs += 1
-		0: # specific number of chunks: i16 * (...) --- ZONE / IZON
-			num_subs = DAW.get_16()
-			for i in num_subs:
-				assert_marker("IZON")
-				var _subs_size = DAW.get_32()
-				var z_width = DAW.get_16()
-				var z_height = DAW.get_16()
-				var z_type = DAW.get_32()
-#				var z_shared_id = DAW.get_16()
-				var z_total_tiles = z_width * z_height
-				var z_tiles = []
-				for _t in z_total_tiles:
-					z_tiles.push_back({
-						"x": signed_u16(DAW.get_16()),
-						"y": signed_u16(DAW.get_16()),
-						"z": signed_u16(DAW.get_16()),
-					})
-				compound_data.push_back({
-					"width": z_width,
-					"height": z_height,
-					"type": z_type,
-#					"shared_id": z_shared_id,
-					"tiles": z_tiles,
-				})
-				if DAW.get_position() > end_of_section:
-					break
-		1: # IZAX: num. of monsters & items in the zone
-			while DAW.get_position() < end_of_section:
-				assert_marker(subs_name)
-				var _subs_size = DAW.get_32()
-				var unkn = DAW.get_16()
-				var monsters = []
-				for _i in DAW.get_16():
-					monsters.push_back({
-						"id": DAW.get_16(),
-						"x": signed_u16(DAW.get_16()),
-						"y": signed_u16(DAW.get_16()),
-					})
-				var items = []
-				for _i in DAW.get_16():
-					items.push_back(DAW.get_16())
-				compound_data.push_back({
-					"unkn": unkn,
-					"monsters": monsters,
-					"items": items
-				})
-				num_subs += 1
-		2,3: # variable amount of elements -- IZX2 & IZX3
-			while DAW.get_position() < end_of_section:
-				assert_marker(subs_name)
-				var _subs_size = DAW.get_32()
-				var elements = []
-				for _i in DAW.get_16():
-					elements.push_back(DAW.get_16())
-				compound_data.push_back(elements)
-				num_subs += 1
-		4: # IZX4: size of data only
-			while DAW.get_position() < end_of_section:
-				assert_marker(subs_name)
-				var subs_size = DAW.get_32()
-				var subs_data = DAW.get_buffer(subs_size)
-				compound_data.push_back(subs_data)
-				num_subs += 1
-		5: # HTSP --
-			compound_data = {}
-			while DAW.get_position() < end_of_section:
-				var zone_id = DAW.get_16()
-				if zone_id == 65535:
-					break
-				var htsp_nums = DAW.get_16()
-				var hotspots_data = []
-				for _i in htsp_nums:
-					hotspots_data.push_back({
-						"type": DAW.get_32(),
-						"x": DAW.get_16(),
-						"y": DAW.get_16(),
-						"enabled": DAW.get_16(),
-						"args": DAW.get_16(),
-					})
-					num_subs += 1
-				compound_data[zone_id] = hotspots_data
-		8: # IPUZ
-			compound_data = {}
-			while DAW.get_position() < end_of_section:
-				var zone_id = DAW.get_16()
-				if zone_id == 65535:
-					break
-				assert_marker(subs_name)
-				var subs_size = DAW.get_32()
-				compound_data[zone_id] = {
-					"type": DAW.get_32(),
-					"item1_class": DAW.get_32(),
-					"item2_class": DAW.get_32(),
-					"ipuz_strings": DAW.get_buffer(subs_size - 16).get_string_from_ascii(),
-					"item1": DAW.get_16(),
-					"item2": DAW.get_16()
-				}
-				num_subs += 1
-		9: # ICHA
-			compound_data = {}
-			while DAW.get_position() < end_of_section:
-				var subs_id = DAW.get_16()
-				if subs_id == 65535:
-					break
-				assert_marker(subs_name)
-				var _subs_size = DAW.get_32()
-				var c_name = DAW.get_buffer(16).get_string_from_ascii()
-				compound_data[c_name] = {
-					"type": DAW.get_16(),
-					"movement_type": DAW.get_16(),
-					"sprites1": [
-						# DIRECTIONS (corner): NW NE SW SE
-						# DIRECTIONS (side): S W N E
-						DAW.get_16(),	# N ^
-						DAW.get_16(),	# S v
-						DAW.get_16(),	# N ^
-						DAW.get_16(),	# W <
-						DAW.get_16(),	# W <
-						DAW.get_16(),	# N ^
-						DAW.get_16(),	# E >
-						DAW.get_16()	# E >
-					],
-					"sprites2": [
-						# frame 1
-						DAW.get_16(),	# N ^
-						DAW.get_16(),	# S v
-						DAW.get_16(),	# N ^
-						DAW.get_16(),	# W <
-						DAW.get_16(),	# W <
-						DAW.get_16(),	# N ^
-						DAW.get_16(),	# E >
-						DAW.get_16(),	# E >
-						
-						# frame 2
-						DAW.get_16(),	# N ^
-						DAW.get_16(),	# S v
-						DAW.get_16(),	# N ^
-						DAW.get_16(),	# W <
-						DAW.get_16(),	# W <
-						DAW.get_16(),	# N ^
-						DAW.get_16(),	# E >
-						DAW.get_16(),	# E >
-					],
-					"sprites": SpriteFrames.new()
-				}
-				for f in 8:
-					compound_data[c_name].sprites1[f] = signed_u16(compound_data[c_name].sprites1[f])
-				for f in 16:
-					compound_data[c_name].sprites2[f] = signed_u16(compound_data[c_name].sprites2[f])
-				num_subs += 1
-		10: # CHWP
-			while DAW.get_position() < end_of_section:
-				var subs_id = DAW.get_16()
-				if subs_id == 65535:
-					break
-				compound_data.push_back({
-					"ref_id": DAW.get_16(),
-					"health": DAW.get_16(),
-				})
-				num_subs += 1
-		11: # n*(id + <16 bytes>) --- CAUX
-			while DAW.get_position() < end_of_section:
-				var subs_id = DAW.get_16()
-				if subs_id == 65535:
-					break
-				compound_data.push_back(DAW.get_16())
-				num_subs += 1
-		12,13: # fixed-size strings with significant IDs: n*(id + <str16>) --- TNAM / ZNAM
-			while DAW.get_position() < end_of_section:
-				var subs_id = DAW.get_16()
-				if subs_id == 65535:
-					break
-				compound_data.push_back({
-					"id": subs_id,
-					"name": DAW.get_buffer(16).get_string_from_ascii(),
-				})
-				num_subs += 1
-		14: # specific number of fixed-size strings: i16 * <str16> --- PNAM
-			num_subs = DAW.get_16()
-			for i in num_subs:
-				compound_data.push_back(DAW.get_buffer(16).get_string_from_ascii())
-				if DAW.get_position() > end_of_section:
-					break
-		15: # unkn. header plus fixed-size strings: i16 + n*(id + <str16>) --- ANAM
-			var _unk_num = DAW.get_16()
-			while DAW.get_position() < end_of_section:
-				compound_data.push_back(DAW.get_buffer(16).get_string_from_ascii())
-				num_subs += 1
-	Log.generic(null,"    --> %d %s SECTIONS" % [num_subs, subs_name])
-	DAW.seek(end_of_section)
-	return compound_data
+
+var DAW = DataFile.new()
 func load_daw(file_path):
 	var r = DAW.open(file_path, File.READ)
 	if r != OK:
 		Log.error(null,r,"could not load DAW file!")
-	else:
-		Log.generic(null,"DAW file loaded sucessfully!")
 	
 	DAW.seek(4)
-	SECTIONS["VERS"] = DAW.get_32()
-	Log.generic(null,"'VERS' at 0x00000000: %d" % [SECTIONS["VERS"]])
+	DATA["VERS"] = DAW.get_32()
+	Log.generic(null,"'VERS' at 0x00000000: %d" % [DATA["VERS"]])
 	
 	while !DAW.end_reached():
 		var offset = DAW.get_position()
@@ -504,95 +286,264 @@ func load_daw(file_path):
 		var end_of_section = DAW.get_position() + s_size
 		Log.generic(null,"'%s' at 0x%08X: %d bytes" % [s_name, offset, s_size])
 		match s_name:
+			"STUP":
+				DAW.get_buffer(s_size)
 			"SNDS": # sound files names
-				SECTIONS["SNDS"] = compound_subsection(-2, end_of_section)
+				var _unk_num = DAW.get_16()
+				while DAW.get_position() < end_of_section:
+					var subs_size = DAW.get_16()
+					DATA.sounds.push_back(DAW.get_buffer(subs_size).get_string_from_ascii())
 			"TILE": # tile bitmaps
-				SECTIONS["TILE"] = compound_subsection(-1, end_of_section)
+				while DAW.get_position() < end_of_section:
+					DATA.tiles.push_back({
+						"name": "",
+						"flags": DAW.get_32(),
+						"bmp": DAW.get_buffer(1024)
+					})
 			"ZONE": # zones data
-				SECTIONS["ZONE"] = compound_subsection(0, end_of_section, "IZON")
+				for i in DAW.get_16():
+					assert_marker("IZON")
+					var _subs_size = DAW.get_32()
+					var z_width = DAW.get_16()
+					var z_height = DAW.get_16()
+					var z_type = DAW.get_32()
+					var z_total_tiles = z_width * z_height
+					var z_tiles = []
+					for _t in z_total_tiles:
+						z_tiles.push_back({
+							"x": signed_u16(DAW.get_16()),
+							"y": signed_u16(DAW.get_16()),
+							"z": signed_u16(DAW.get_16()),
+						})
+					DATA.zones.push_back({
+						"name": "",
+						"width": z_width,
+						"height": z_height,
+						"type": z_type,
+						"tiles": z_tiles,
+						
+						"unkn_zaux": null,
+						"monsters": [],
+						"items": [],
+						
+						"reward_items": [],
+						"npcs": [],
+						"izx4": [],
+						
+						"hotspots": [],
+						"puzzle": -1,
+					})
+					if DAW.get_position() > end_of_section:
+						break
 			"ZAUX": # monsters, required items
-				SECTIONS["ZAUX"] = compound_subsection(1, end_of_section, "IZAX")
+				for i in DATA.zones.size():
+					assert_marker("IZAX")
+					var _subs_size = DAW.get_32()
+					DATA.zones[i].unkn_zaux = DAW.get_16()
+					for _i in DAW.get_16():
+						DATA.zones[i].monsters.push_back({
+							"id": DAW.get_16(),
+							"x": signed_u16(DAW.get_16()),
+							"y": signed_u16(DAW.get_16()),
+						})
+					for _i in DAW.get_16():
+						DATA.zones[i].items.push_back(DAW.get_16())
 			"ZAX2": # reward items
-				SECTIONS["ZAX2"] = compound_subsection(2, end_of_section, "IZX2")
+				for i in DATA.zones.size():
+					assert_marker("IZX2")
+					var _subs_size = DAW.get_32()
+					for _i in DAW.get_16():
+						DATA.zones[i].reward_items.push_back(DAW.get_16())
 			"ZAX3": # npcs
-				SECTIONS["ZAX3"] = compound_subsection(3, end_of_section, "IZX3")
+				for i in DATA.zones.size():
+					assert_marker("IZX3")
+					var _subs_size = DAW.get_32()
+					for _i in DAW.get_16():
+						DATA.zones[i].npcs.push_back(DAW.get_16())
 			"ZAX4": # ???
-				SECTIONS["ZAX4"] = compound_subsection(4, end_of_section, "IZX4")
+				for i in DATA.zones.size():
+					assert_marker("IZX4")
+					var subs_size = DAW.get_32()
+					var subs_data = DAW.get_buffer(subs_size)
+					DATA.zones[i].izx4.push_back(subs_data)
 			"HTSP": # hotspots
-				SECTIONS["HTSP"] = compound_subsection(5, end_of_section, "IZX4")
-#			"ACTN": # zone scripts?
+				while DAW.get_position() < end_of_section:
+					var zone_id = DAW.get_16()
+					if zone_id == 65535:
+						break
+					for _i in DAW.get_16():
+						DATA.zones[zone_id].hotspots.push_back({
+							"type": DAW.get_32(),
+							"x": DAW.get_16(),
+							"y": DAW.get_16(),
+							"enabled": DAW.get_16(),
+							"args": DAW.get_16(),
+						})
+			"ACTN": # zone scripts?
+				while DAW.get_position() < end_of_section:
+					var action_group_id = DAW.get_16()
+					if action_group_id == 65535:
+						break
+					var action_group = []
+					for _a in DAW.get_16():
+						assert_marker("IACT")
+						var _subs_size = DAW.get_32()
+						var action_data = {
+							"name": "",
+							"conditions": [],
+							"instructions": [],
+						}
+
+						for _c in DAW.get_16(): # conditions
+							var condition = {
+								"opcode": DAW.get_16(),
+								"args": [
+									DAW.get_16(),
+									DAW.get_16(),
+									DAW.get_16(),
+									DAW.get_16(),
+									DAW.get_16(),
+								],
+							}
+							var text_length = DAW.get_16()
+							condition["text"] = DAW.get_buffer(text_length).get_string_from_ascii()
+							action_data.conditions.push_back(condition)
+						for _i in DAW.get_16(): # instructions
+							var instruction = {
+								"opcode": DAW.get_16(),
+								"args": [
+									DAW.get_16(),
+									DAW.get_16(),
+									DAW.get_16(),
+									DAW.get_16(),
+									DAW.get_16(),
+								],
+							}
+							var text_length = DAW.get_16()
+							instruction["text"] = DAW.get_buffer(text_length).get_string_from_ascii()
+							action_data.instructions.push_back(instruction)
+						action_group.push_back(action_data)
+					DATA.actions[action_group_id] = action_group
+				
 			"PUZ2": # puzzles
-				SECTIONS["PUZ2"] = compound_subsection(8, end_of_section, "IPUZ")
+				while DAW.get_position() < end_of_section:
+					var zone_id = DAW.get_16()
+					if zone_id == 65535:
+						break
+					assert_marker("IPUZ")
+					var subs_size = DAW.get_32()
+					DATA.puzzles.push_back({
+						"name": "",
+						"type": DAW.get_32(),
+						"item1_class": DAW.get_32(),
+						"item2_class": DAW.get_32(),
+						"ipuz_strings": DAW.get_buffer(subs_size - 16).get_string_from_ascii(),
+						"item1": DAW.get_16(),
+						"item2": DAW.get_16()
+					})
+					DATA.zones[zone_id].puzzle = DATA.puzzles.size() - 1
 			"CHAR": # characters
-				SECTIONS["CHAR"] = compound_subsection(9, end_of_section, "ICHA")
+				while DAW.get_position() < end_of_section:
+					var char_id = DAW.get_16()
+					if char_id == 65535:
+						break
+					assert_marker("ICHA")
+					var _subs_size = DAW.get_32()
+					var c_name = DAW.get_buffer(16).get_string_from_ascii()
+					var data = {
+						"name": c_name,
+						"type": DAW.get_16(),
+						"movement_type": DAW.get_16(),
+						"sprites1": [
+							# DIRECTIONS (corner): NW NE SW SE
+							# DIRECTIONS (side): S W N E
+							DAW.get_16(),	# N ^
+							DAW.get_16(),	# S v
+							DAW.get_16(),	# N ^
+							DAW.get_16(),	# W <
+							DAW.get_16(),	# W <
+							DAW.get_16(),	# N ^
+							DAW.get_16(),	# E >
+							DAW.get_16()	# E >
+						],
+						"sprites2": [
+							# frame 1
+							DAW.get_16(),	# N ^
+							DAW.get_16(),	# S v
+							DAW.get_16(),	# N ^
+							DAW.get_16(),	# W <
+							DAW.get_16(),	# W <
+							DAW.get_16(),	# N ^
+							DAW.get_16(),	# E >
+							DAW.get_16(),	# E >
+							
+							# frame 2
+							DAW.get_16(),	# N ^
+							DAW.get_16(),	# S v
+							DAW.get_16(),	# N ^
+							DAW.get_16(),	# W <
+							DAW.get_16(),	# W <
+							DAW.get_16(),	# N ^
+							DAW.get_16(),	# E >
+							DAW.get_16(),	# E >
+						],
+						"sprites": HERO_SPRITESHEET if c_name == "HERO" else SpriteFrames.new(),
+						
+						"weapon_refid": null,
+						"weapon_health": null,
+						"damage": null,
+					}
+					for f in 8:
+						data.sprites1[f] = signed_u16(data.sprites1[f])
+					for f in 16:
+						data.sprites2[f] = signed_u16(data.sprites2[f])
+					DATA.characters[char_id] = data
 			"CHWP": # weapons
-				SECTIONS["CHWP"] = compound_subsection(10, end_of_section)
-			"CAUX": # aux. character info
-				SECTIONS["CAUX"] = compound_subsection(11, end_of_section)
-			"TNAM": # tile names
-				SECTIONS["TNAM"] = compound_subsection(12, end_of_section)
-			"ZNAM": # zone names?
-				SECTIONS["ZNAM"] = compound_subsection(13, end_of_section)
-			"PNAM": # item script names? (TX, KL, GO, GW)
-				SECTIONS["PNAM"] = compound_subsection(14, end_of_section)
+				while DAW.get_position() < end_of_section:
+					var char_id = DAW.get_16()
+					if char_id == 65535:
+						break
+					DATA.characters[char_id].weapon_refid = DAW.get_16() # id of weapon "character" if monster, or id of attack sound if weapon
+					DATA.characters[char_id].weapon_health = DAW.get_16()
+			"CAUX": # characters damage
+				while DAW.get_position() < end_of_section:
+					var char_id = DAW.get_16()
+					if char_id == 65535:
+						break
+					DATA.characters[char_id].damage = DAW.get_16()
+			"TNAM": # tiles names
+				while DAW.get_position() < end_of_section:
+					var tile_id = DAW.get_16()
+					if tile_id == 65535:
+						break
+					DATA.tiles[tile_id].name = DAW.get_buffer(16).get_string_from_ascii()
+			"ZNAM": # zones names
+				while DAW.get_position() < end_of_section:
+					var zone_id = DAW.get_16()
+					if zone_id == 65535:
+						break
+					DATA.zones[zone_id].name = DAW.get_buffer(16).get_string_from_ascii()
+			"PNAM": # puzzles names
+				var num_subs = DAW.get_16()
+				for puzzle_id in num_subs:
+					DATA.puzzles[puzzle_id].name = DAW.get_buffer(16).get_string_from_ascii()
+					if DAW.get_position() > end_of_section:
+						break
 			"ANAM": # action scripts names?
-				SECTIONS["ANAM"] = compound_subsection(15, end_of_section)
-			_:
-				var s_data = DAW.get_buffer(s_size)
-				SECTIONS[s_name] = s_data
+				while DAW.get_position() < end_of_section:
+					var action_group_id = DAW.get_16()
+					if action_group_id == 65535:
+						break
+					while true:
+						var _a = DAW.get_16()
+						if _a == 65535:
+							break
+						DATA.actions[action_group_id][_a].name = DAW.get_buffer(16).get_string_from_ascii()
+			"ENDF":
+				assert(s_size == 0)
+	Log.generic(null,"DAW file loaded sucessfully!")
 
-func get_sprite(i):
-	if i == -1:
-		return
-	return load("res://assets/indy/tile"+str(i)+".png")
-func generate_tileset(tile_set : TileSet):
-	tile_set.clear()
-	
-	var square_collider = RectangleShape2D.new()
-	square_collider.extents = Vector2(10,10)
-	
-	for i in SECTIONS.TILE.size():
-		tile_set.create_tile(i)
-		tile_set.tile_set_texture(i,get_sprite(i))
-		
-		var tile_data = get_tile_data(i)
-		var tile_flags = tile_data.flags
-		if tile_flags & TileFlags.is_obstacle:
-			tile_set.tile_add_shape(i, square_collider, Transform2D())
-			tile_set.tile_set_shape_offset(i, 0, Vector2(16,16))
-func sprite_add_anim(spritesheet : SpriteFrames, anim_name : String, frames_list : Array, frames : Array):
-	if spritesheet.has_animation(anim_name):
-		spritesheet.remove_animation(anim_name)
-	spritesheet.add_animation(anim_name)
-	spritesheet.set_animation_speed(anim_name, 7.0)
-	for f in frames:
-		spritesheet.add_frame(anim_name,get_sprite(frames_list[f]))
-func sprite_add_4way_anim(spritesheet : SpriteFrames, anim_name : String, frames_list : Array, frames_N : Array, frames_S : Array, frames_W : Array, frames_E : Array):
-	sprite_add_anim(spritesheet, str(anim_name,"_N"), frames_list, frames_N)
-	sprite_add_anim(spritesheet, str(anim_name,"_S"), frames_list, frames_S)
-	sprite_add_anim(spritesheet, str(anim_name,"_W"), frames_list, frames_W)
-	sprite_add_anim(spritesheet, str(anim_name,"_E"), frames_list, frames_E)
-func generate_spritesheets(hero_spritesheet):
-	for c_name in SECTIONS.CHAR:
-		var character = SECTIONS.CHAR[c_name]
-		var spritesheet = character.sprites
-		match character.type:
-			CharacterType.hero, CharacterType.enemy:
-				sprite_add_4way_anim(spritesheet, "idle", character.sprites1, [0], [1], [3], [6])
-				if character.sprites2[0] != -1:
-					sprite_add_4way_anim(spritesheet, "walk", character.sprites2, [0,8], [1,9], [3,11], [6,14])
-			CharacterType.weapon:
-				if character.sprites1[7] != -1:
-					sprite_add_anim(spritesheet, "item", character.sprites1, [7])
-				if character.sprites1[0] != -1:
-					sprite_add_4way_anim(spritesheet, "projectile", character.sprites1, [0], [1], [3], [6])
-				if character.sprites2[0] != -1:
-					# fix for WhipWeapon missing sprite:
-					if c_name == "WhipWeapon":
-						character.sprites2[2] = 480
-					sprite_add_4way_anim(SECTIONS.CHAR.HERO.sprites, c_name, character.sprites2, [0,8,0], [1,9,1], [3,11,3], [6,14,6])
-					sprite_add_4way_anim(hero_spritesheet, c_name, character.sprites2, [2,10,2], [4,12,4], [5,13,5], [7,15,7])
-
+# Textures
 onready var IMAGE_BUFFER = Image.new()
 func texture_from_data(data, width, height, palette):
 	IMAGE_BUFFER.create(width, height, false, Image.FORMAT_RGBA8)
@@ -615,22 +566,67 @@ func texture_from_data(data, width, height, palette):
 func save_texture(texture : ImageTexture, path):
 	return texture.get_data().save_png(path)
 
-onready var OBJECT_SCN = load("res://scenes/Object.tscn")
-func spawn_object(tile_id, x, y):
-	var obj = OBJECT_SCN.instance()
-	obj.texture = get_sprite(tile_id)
-	obj.position = to_vector(Vector2(x,y))
-	obj.tile_id = tile_id
-	WALL_TILES.add_child(obj)
-func spawn_monster(char_id, x, y):
-	pass
+# Sprites
+onready var HERO_SPRITESHEET = SpriteFrames.new()
+onready var ATTACK_SPRITESHEET = SpriteFrames.new()
+func get_sprite(i):
+	if i == -1:
+		return
+	return load("res://assets/indy/tile"+str(i)+".png")
+func generate_tileset(tile_set : TileSet):
+	tile_set.clear()
+	for i in DATA.tiles.size():
+		tile_set.create_tile(i)
+		tile_set.tile_set_texture(i,get_sprite(i))
+	Log.generic(null,"Tileset generated sucessfully!")
+func sprite_add_anim(spritesheet : SpriteFrames, anim_name : String, frames_list : Array, frames : Array):
+	if spritesheet.has_animation(anim_name):
+		spritesheet.remove_animation(anim_name)
+	spritesheet.add_animation(anim_name)
+	spritesheet.set_animation_speed(anim_name, 7.0)
+	for f in frames:
+		spritesheet.add_frame(anim_name,get_sprite(frames_list[f]))
+func sprite_add_4way_anim(spritesheet : SpriteFrames, anim_name : String, frames_list : Array, frames_N : Array, frames_S : Array, frames_W : Array, frames_E : Array):
+	sprite_add_anim(spritesheet, str(anim_name,"_N"), frames_list, frames_N)
+	sprite_add_anim(spritesheet, str(anim_name,"_S"), frames_list, frames_S)
+	sprite_add_anim(spritesheet, str(anim_name,"_W"), frames_list, frames_W)
+	sprite_add_anim(spritesheet, str(anim_name,"_E"), frames_list, frames_E)
+func generate_spritesheets():
+	for char_id in DATA.characters:
+		var character = DATA.characters[char_id]
+		var c_name = character.name
+		var spritesheet = character.sprites
+		match character.type:
+			CharacterType.hero, CharacterType.enemy:
+				sprite_add_4way_anim(spritesheet, "idle", character.sprites1, [0], [1], [3], [6])
+				if character.sprites2[0] != -1:
+					sprite_add_4way_anim(spritesheet, "walk", character.sprites2, [0,8], [1,9], [3,11], [6,14])
+			CharacterType.weapon:
+				if character.sprites1[7] != -1: # "inventory" sprite
+					sprite_add_anim(spritesheet, "item", character.sprites1, [7])
+				if character.sprites1[0] != -1:
+					sprite_add_4way_anim(spritesheet, "projectile", character.sprites1, [0], [1], [3], [6])
+				if character.sprites2[0] != -1:
+					# fix for WhipWeapon missing sprite:
+					if c_name == "WhipWeapon":
+						character.sprites2[2] = 480
+					sprite_add_4way_anim(HERO_SPRITESHEET, c_name, character.sprites2, [0,8,0], [1,9,1], [3,11,3], [6,14,6])
+					sprite_add_4way_anim(ATTACK_SPRITESHEET, c_name, character.sprites2, [2,10,2], [4,12,4], [5,13,5], [7,15,7])
+	Log.generic(null,"Character spritesheets generated successfully!")
 
-func get_tile_data(tile_id):
-	return SECTIONS.TILE[tile_id]
-
+# Tiles
+func to_tile(vector, rounded = true):
+	var tile = (vector - Vector2(16,16)) / 32.0
+	if rounded:
+		tile = round_vector(tile)
+	return tile
+func to_vector(tile):
+	return (tile * 32.0) + Vector2(16,16)
 var FLOOR_TILES : TileMap = null
 var WALL_TILES : TileMap = null
 var ROOF_TILES : TileMap = null
+func get_tile_data(tile_id):
+	return DATA.tiles[tile_id]
 func clear_zone():
 	FLOOR_TILES.clear()
 	WALL_TILES.clear()
@@ -640,7 +636,7 @@ func clear_zone():
 func load_zone(id, map_origin = Vector2(), clear = true):
 	if clear:
 		clear_zone()
-	var zone_data = SECTIONS.ZONE[id]
+	var zone_data = DATA.zones[id]
 	for y in zone_data.height:
 		for x in zone_data.width:
 			var tile_layers = zone_data.tiles[y * zone_data.width + x]
@@ -656,6 +652,7 @@ func load_zone(id, map_origin = Vector2(), clear = true):
 			# for floor and roof (ceiling) tiles, go ahead
 			FLOOR_TILES.set_cellv(world_tile_coords, tile_layers.x)
 			ROOF_TILES.set_cellv(world_tile_coords, tile_layers.z)
+	Log.generic(null,"Loaded: zone %d"%[id])
 	return zone_data
 func is_tile_obstructed(tile):
 	var flood_id = FLOOR_TILES.get_cellv(tile)
@@ -673,6 +670,19 @@ func get_object_at(tile):
 			return obj
 	return null
 func set_tile_at(zone_id, tile, level, tile_id):
-	var zone_data = SECTIONS.ZONE[zone_id]
-	var tile_layers = zone_data.tiles[tile.y * zone_data.width + tile.x]
-	tile_layers[level] = tile_id
+	# TODO
+#	var zone_data = DATA.zones[zone_id]
+#	var tile_layers = zone_data.tiles[tile.y * zone_data.width + tile.x]
+#	tile_layers[level] = tile_id
+	pass
+
+# Objects, actors
+onready var OBJECT_SCN = load("res://scenes/Object.tscn")
+func spawn_object(tile_id, x, y):
+	var obj = OBJECT_SCN.instance()
+	obj.texture = get_sprite(tile_id)
+	obj.position = to_vector(Vector2(x,y))
+	obj.tile_id = tile_id
+	WALL_TILES.add_child(obj)
+func spawn_monster(char_id, x, y):
+	pass

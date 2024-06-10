@@ -2,12 +2,11 @@ extends Control
 
 onready var HERO = $Walls/HERO
 onready var tile_set = $Floor.tile_set
-onready var attack_spritesheet = HERO.attack_spritesheet
 
 func load_indy():
 	Game.load_daw("E:/Games/INDYDESK/DESKTOP.DAW")
 	Game.generate_tileset(tile_set)
-	Game.generate_spritesheets(attack_spritesheet)
+	Game.generate_spritesheets()
 
 func load_zone(id):
 	var zone_data = Game.load_zone(id)
@@ -67,7 +66,7 @@ func _ready():
 #	$SplashScreen.texture = texture_from_data(Game.SECTIONS["STUP"], 288, 288, PALETTE_INDY)
 	
 #	hero sprites
-	HERO.sprite.frames = Game.SECTIONS.CHAR.HERO.sprites
+	HERO.sprite.frames = Game.HERO_SPRITESHEET
 	HERO.sprite.disconnect("animation_finished", HERO, "_on_Character_animation_finished")
 	HERO.sprite.connect("animation_finished", HERO, "_on_Character_animation_finished")
 

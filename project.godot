@@ -49,6 +49,10 @@ Viewports="*res://scripts/autoload/Viewports.gd"
 Game="*res://scripts/autoload/Game.gd"
 DataStruct="*res://scripts/autoload/DataStruct.gd"
 
+[debug]
+
+settings/physics_interpolation/enable_warnings=false
+
 [display]
 
 window/size/width=800
@@ -93,6 +97,10 @@ drag={
 "events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":16777237,"physical_scancode":0,"unicode":0,"echo":false,"script":null)
  ]
 }
+
+[network]
+
+limits/debugger_stdout/max_chars_per_second=20480
 
 [physics]
 

@@ -1,5 +1,13 @@
 extends Node
 
+var FADE = null
+func fadein():
+	FADE.fade_target = -1
+	yield(FADE,"fade_done")
+func fadeout():
+	FADE.fade_target = 1
+	yield(FADE,"fade_done")
+
 func debug_tools_enabled():
 	return false
 
@@ -259,6 +267,7 @@ func value_list_flags(value, enums):
 
 # Game data loading
 var DATA = {
+	"splash": null,
 	"sounds": [],
 	"tiles": [],
 	"zones": [],
@@ -286,8 +295,8 @@ func load_daw(file_path):
 		var end_of_section = DAW.get_position() + s_size
 		Log.generic(null,"'%s' at 0x%08X: %d bytes" % [s_name, offset, s_size])
 		match s_name:
-			"STUP":
-				DAW.get_buffer(s_size)
+			"STUP": # splash screen
+				DATA.splash = DAW.get_buffer(s_size)
 			"SNDS": # sound files names
 				var _unk_num = DAW.get_16()
 				while DAW.get_position() < end_of_section:
@@ -324,7 +333,7 @@ func load_daw(file_path):
 						
 						"unkn_zaux": null,
 						"monsters": [],
-						"items": [],
+						"required_items": [],
 						
 						"reward_items": [],
 						"npcs": [],
@@ -347,7 +356,7 @@ func load_daw(file_path):
 							"y": signed_u16(DAW.get_16()),
 						})
 					for _i in DAW.get_16():
-						DATA.zones[i].items.push_back(DAW.get_16())
+						DATA.zones[i].required_items.push_back(DAW.get_16())
 			"ZAX2": # reward items
 				for i in DATA.zones.size():
 					assert_marker("IZX2")
@@ -366,7 +375,7 @@ func load_daw(file_path):
 					var subs_size = DAW.get_32()
 					var subs_data = DAW.get_buffer(subs_size)
 					DATA.zones[i].izx4.push_back(subs_data)
-			"HTSP": # hotspots
+			"HTSP": # hotspots (triggers)
 				while DAW.get_position() < end_of_section:
 					var zone_id = DAW.get_16()
 					if zone_id == 65535:
@@ -379,7 +388,7 @@ func load_daw(file_path):
 							"enabled": DAW.get_16(),
 							"args": DAW.get_16(),
 						})
-			"ACTN": # zone scripts?
+			"ACTN": # action scripts
 				while DAW.get_position() < end_of_section:
 					var action_group_id = DAW.get_16()
 					if action_group_id == 65535:
@@ -393,7 +402,6 @@ func load_daw(file_path):
 							"conditions": [],
 							"instructions": [],
 						}
-
 						for _c in DAW.get_16(): # conditions
 							var condition = {
 								"opcode": DAW.get_16(),
@@ -424,7 +432,6 @@ func load_daw(file_path):
 							action_data.instructions.push_back(instruction)
 						action_group.push_back(action_data)
 					DATA.actions[action_group_id] = action_group
-				
 			"PUZ2": # puzzles
 				while DAW.get_position() < end_of_section:
 					var zone_id = DAW.get_16()
@@ -505,7 +512,7 @@ func load_daw(file_path):
 						break
 					DATA.characters[char_id].weapon_refid = DAW.get_16() # id of weapon "character" if monster, or id of attack sound if weapon
 					DATA.characters[char_id].weapon_health = DAW.get_16()
-			"CAUX": # characters damage
+			"CAUX": # monster damage
 				while DAW.get_position() < end_of_section:
 					var char_id = DAW.get_16()
 					if char_id == 65535:
@@ -529,7 +536,7 @@ func load_daw(file_path):
 					DATA.puzzles[puzzle_id].name = DAW.get_buffer(16).get_string_from_ascii()
 					if DAW.get_position() > end_of_section:
 						break
-			"ANAM": # action scripts names?
+			"ANAM": # action scripts names
 				while DAW.get_position() < end_of_section:
 					var action_group_id = DAW.get_16()
 					if action_group_id == 65535:
@@ -565,6 +572,9 @@ func texture_from_data(data, width, height, palette):
 	return texture
 func save_texture(texture : ImageTexture, path):
 	return texture.get_data().save_png(path)
+func load_splashscreen(splash_screen):
+	splash_screen.texture = texture_from_data(DATA.splash, 288, 288, PALETTE_INDY)
+	Log.generic(null,"Splash-screen loaded!")
 
 # Sprites
 onready var HERO_SPRITESHEET = SpriteFrames.new()
@@ -614,7 +624,10 @@ func generate_spritesheets():
 					sprite_add_4way_anim(ATTACK_SPRITESHEET, c_name, character.sprites2, [2,10,2], [4,12,4], [5,13,5], [7,15,7])
 	Log.generic(null,"Character spritesheets generated successfully!")
 
-# Tiles
+# Tiles & zones
+var FLOOR_TILES : TileMap = null
+var WALL_TILES : TileMap = null
+var ROOF_TILES : TileMap = null
 func to_tile(vector, rounded = true):
 	var tile = (vector - Vector2(16,16)) / 32.0
 	if rounded:
@@ -622,38 +635,8 @@ func to_tile(vector, rounded = true):
 	return tile
 func to_vector(tile):
 	return (tile * 32.0) + Vector2(16,16)
-var FLOOR_TILES : TileMap = null
-var WALL_TILES : TileMap = null
-var ROOF_TILES : TileMap = null
 func get_tile_data(tile_id):
 	return DATA.tiles[tile_id]
-func clear_zone():
-	FLOOR_TILES.clear()
-	WALL_TILES.clear()
-	ROOF_TILES.clear()
-	for obj in get_tree().get_nodes_in_group("objects"):
-		obj.queue_free()
-func load_zone(id, map_origin = Vector2(), clear = true):
-	if clear:
-		clear_zone()
-	var zone_data = DATA.zones[id]
-	for y in zone_data.height:
-		for x in zone_data.width:
-			var tile_layers = zone_data.tiles[y * zone_data.width + x]
-			var world_tile_coords = Vector2(x, y) + map_origin
-			
-			# for object (wall) tiles, only set the tilemap for non-moveable walls
-			var tile = tile_layers.y
-			if tile != -1 && get_tile_data(tile).flags & TileFlags.is_draggable:
-				spawn_object(tile, x, y)
-			else:
-				WALL_TILES.set_cellv(world_tile_coords, tile_layers.y)
-			
-			# for floor and roof (ceiling) tiles, go ahead
-			FLOOR_TILES.set_cellv(world_tile_coords, tile_layers.x)
-			ROOF_TILES.set_cellv(world_tile_coords, tile_layers.z)
-	Log.generic(null,"Loaded: zone %d"%[id])
-	return zone_data
 func is_tile_obstructed(tile):
 	var flood_id = FLOOR_TILES.get_cellv(tile)
 	if flood_id == -1:
@@ -669,20 +652,151 @@ func get_object_at(tile):
 		if to_tile(obj.position) == tile:
 			return obj
 	return null
-func set_tile_at(zone_id, tile, level, tile_id):
-	# TODO
+func set_tile_at(zone_id, tile, level, tile_id): # TODO
 #	var zone_data = DATA.zones[zone_id]
 #	var tile_layers = zone_data.tiles[tile.y * zone_data.width + tile.x]
 #	tile_layers[level] = tile_id
 	pass
 
+
+
+var LOADED_ZONES = {}
+func unload_all_zones():
+	FLOOR_TILES.clear()
+	WALL_TILES.clear()
+	ROOF_TILES.clear()
+	for obj in get_tree().get_nodes_in_group("objects"):
+		obj.queue_free()
+	TRIGGERS_LOOKUP = {}
+#	LOADED_ZONES = {}
+	for zone_id in LOADED_ZONES:
+		LOADED_ZONES[zone_id][1] = false
+func unload_zone(zone_id):
+	if zone_id in LOADED_ZONES:
+		var zone_data = DATA.zones[zone_id]
+		var map_origin = LOADED_ZONES[zone_id][0]
+		for y in zone_data.height:
+			for x in zone_data.width:
+				var world_tile_coords = Vector2(x, y) + map_origin
+				FLOOR_TILES.set_cellv(world_tile_coords, -1)
+				WALL_TILES.set_cellv(world_tile_coords, -1)
+				ROOF_TILES.set_cellv(world_tile_coords, -1)
+				TRIGGERS_LOOKUP.erase(world_tile_coords)
+		for obj in get_tree().get_nodes_in_group(str("zone_",zone_id)):
+			obj.queue_free()
+#		LOADED_ZONES.erase(zone_id)
+		LOADED_ZONES[zone_id][1] = false
+	else:
+		Log.generic(null,"Can not unload zone %d because it wasn't loaded!" % [zone_id])
+func load_zone(zone_id, map_origin):
+	var zone_data = DATA.zones[zone_id]
+	for y in zone_data.height:
+		for x in zone_data.width:
+			var tile_layers = zone_data.tiles[y * zone_data.width + x]
+			var world_tile_coords = Vector2(x, y) + map_origin
+			
+			# for object (wall) tiles, only set the tilemap for non-moveable walls
+			var tile_id = tile_layers.y
+			if tile_id != -1 && get_tile_data(tile_id).flags & TileFlags.is_draggable:
+				spawn_object(tile_id, world_tile_coords.x, world_tile_coords.y, zone_id)
+			else:
+				WALL_TILES.set_cellv(world_tile_coords, tile_layers.y)
+			
+			# for floor and roof (ceiling) tiles, go ahead
+			FLOOR_TILES.set_cellv(world_tile_coords, tile_layers.x)
+			ROOF_TILES.set_cellv(world_tile_coords, tile_layers.z)
+			
+			# save hotspots (triggers) into the lookup
+			for hotspot in zone_data.hotspots:
+				if hotspot.x == x && hotspot.y == y:
+					TRIGGERS_LOOKUP[world_tile_coords] = hotspot
+			
+	LOADED_ZONES[zone_id] = [map_origin,true]
+	Log.generic(null,"Loaded zone: %d at %s" % [zone_id, map_origin])
+	return zone_data
+func save_zone_data(): # TODO
+	pass
+
+#var CURRENT_ZONE = -1
+var ROOMS_STACK = []
+func get_hero_current_zone():
+	var hero_tile = HERO_ACTOR.tile_current
+	for zone_id in LOADED_ZONES:
+		if LOADED_ZONES[zone_id][1]:
+			var map_origin = LOADED_ZONES[zone_id][0]
+			var zone_data = DATA.zones[zone_id]
+			if hero_tile >= map_origin && hero_tile <= map_origin + Vector2(zone_data.width, zone_data.height):
+				return zone_id
+	pass
+func room_enter(zone_id):
+	
+	var map_origin = null
+	if zone_id in LOADED_ZONES: # we already calculated the map origin previously
+		map_origin = LOADED_ZONES[zone_id][0]
+	else: # calculate origin using the player position and the door_out trigger tile
+		var zone_data = DATA.zones[zone_id]
+		for hotspot in zone_data.hotspots:
+			if hotspot.type == Hotspots.door_out:
+				map_origin = HERO_ACTOR.tile_current - Vector2(hotspot.x, hotspot.y)
+	
+	if map_origin == null:
+		Log.generic(null,"Can not enter room (zone %d) because it lacks a 'door_out' tile!!" % [zone_id])
+	else:
+		yield(fadeout(),"completed")
+		ROOMS_STACK.push_back(get_hero_current_zone())
+		unload_all_zones()
+		load_zone(zone_id, map_origin)
+		yield(fadein(),"completed")
+func room_exit():
+	var prev_zone_id = ROOMS_STACK[0] # the outer zone MUST BE IN THE STACK.
+	
+	var map_origin = null
+	if prev_zone_id in LOADED_ZONES: # we already calculated the map origin previously
+		map_origin = LOADED_ZONES[prev_zone_id][0]
+	else: # calculate origin using the player position and the door_out trigger tile
+		var zone_data = DATA.zones[prev_zone_id]
+		for hotspot in zone_data.hotspots:
+			if hotspot.type == Hotspots.door_in && hotspot.args == get_hero_current_zone():
+				map_origin = HERO_ACTOR.tile_current - Vector2(hotspot.x, hotspot.y)
+	
+	
+	if map_origin == null:
+		Log.generic(null,"Can not exit room because the previous zone lacks a linked 'door_in' tile!!")
+	else:
+		yield(fadeout(),"completed")
+		unload_all_zones()
+		ROOMS_STACK.pop_front()
+		load_zone(prev_zone_id, map_origin)
+		yield(fadein(),"completed")
+	
+
+var TRIGGERS_LOOKUP = {}
+func do_triggers(tile):
+	if tile in TRIGGERS_LOOKUP:
+		var hotspot = TRIGGERS_LOOKUP[tile]
+		if hotspot.enabled:
+			match hotspot.type:
+				Hotspots.door_in:
+					room_enter(hotspot.args)
+				Hotspots.door_out:
+					room_exit()
+				_:
+					pass
+			print("(%d,%d) <%d> %s %s %s" % [
+				hotspot.x, hotspot.y,
+				hotspot.type, Log.get_enum_string(Game.Hotspots, hotspot.type),
+				"" if hotspot.args == 65535 else str("(",hotspot.args,")"),
+				"" if hotspot.enabled else "(off)"])
+
 # Objects, actors
+var HERO_ACTOR = null
 onready var OBJECT_SCN = load("res://scenes/Object.tscn")
-func spawn_object(tile_id, x, y):
+func spawn_object(tile_id, x, y, zone_id):
 	var obj = OBJECT_SCN.instance()
 	obj.texture = get_sprite(tile_id)
 	obj.position = to_vector(Vector2(x,y))
 	obj.tile_id = tile_id
+	obj.linked_zone_id = zone_id
 	WALL_TILES.add_child(obj)
-func spawn_monster(char_id, x, y):
+func spawn_monster(char_id, x, y): # TODO
 	pass

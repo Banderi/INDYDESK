@@ -1,10 +1,11 @@
-[gd_scene load_steps=10 format=2]
+[gd_scene load_steps=11 format=2]
 
 [ext_resource path="res://scripts/Main.gd" type="Script" id=1]
 [ext_resource path="res://assets/indy/tileset.tres" type="TileSet" id=2]
 [ext_resource path="res://fonts/basis33.tres" type="DynamicFont" id=3]
 [ext_resource path="res://assets/indy/tile377.png" type="Texture" id=4]
 [ext_resource path="res://scenes/Actor.tscn" type="PackedScene" id=5]
+[ext_resource path="res://scripts/Fade.gd" type="Script" id=6]
 
 [sub_resource type="CanvasItemMaterial" id=4]
 blend_mode = 1
@@ -54,6 +55,7 @@ format = 1
 
 [node name="HERO" parent="Walls" instance=ExtResource( 5 )]
 position = Vector2( 368, 176 )
+is_hero = true
 
 [node name="Camera2D" type="Camera2D" parent="Walls/HERO"]
 current = true
@@ -111,6 +113,13 @@ position = Vector2( 206, 180 )
 texture = SubResource( 1 )
 
 [node name="UI" type="CanvasLayer" parent="."]
+
+[node name="Fade" type="ColorRect" parent="UI"]
+modulate = Color( 1, 1, 1, 0 )
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color( 0, 0, 0, 1 )
+script = ExtResource( 6 )
 
 [node name="ScrollContainer" type="ScrollContainer" parent="UI"]
 visible = false
@@ -219,7 +228,6 @@ margin_bottom = 30.0
 text = "test"
 
 [node name="SpinBox" type="SpinBox" parent="UI"]
-visible = false
 anchor_left = 1.0
 anchor_right = 1.0
 margin_left = -90.0
@@ -230,7 +238,6 @@ max_value = 365.0
 rounded = true
 
 [node name="Label" type="RichTextLabel" parent="UI"]
-visible = false
 anchor_left = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -243,7 +250,6 @@ text = "test"
 selection_enabled = true
 
 [node name="Label2" type="Label" parent="UI"]
-visible = false
 margin_left = 11.0
 margin_top = 10.0
 margin_right = 212.0

@@ -1,11 +1,13 @@
 extends Sprite
 
+var linked_zone_id = -1 # this is used for saving data and when unloading zones
 var linked_actor = null
 var tile_id = -1
 
 # Called when the node enters the scene tree for the first time.
 func _ready():
 	add_to_group("objects")
+	add_to_group(str("zone_",linked_zone_id))
 
 # Called every frame. 'delta' is the elapsed time since the previous frame.
 func reparent(new_parent):

@@ -7,52 +7,42 @@ func load_indy():
 	Game.load_daw("E:/Games/INDYDESK/DESKTOP.DAW")
 	Game.generate_tileset(tile_set)
 	Game.generate_spritesheets()
+	Game.load_splashscreen($SplashScreen)
 
-func load_zone(id):
-	var zone_data = Game.load_zone(id)
+func load_zone(id, map_origin):
+	var zone_data = Game.load_zone(id, map_origin)
 #	var tiles_htsp = $Hotspots
 #	var tiles_mnstr = $Monsters
+
+	var label = $UI/Label
 	
-	$Label.text = "Type: <%d> %s" % [zone_data.type,Log.get_enum_string(Game.ZonesYoda, zone_data.type)]
-	$Label.text += "\n\nHotspots:"
-	for hotspot in Game.SECTIONS.HTSP.get(id,[]):
-		$Label.text += "\n(%d,%d) <%d> %s %s" % [
+	label.text = "Type: <%d> %s" % [zone_data.type,Log.get_enum_string(Game.Zones, zone_data.type)]
+	label.text += "\n\nHotspots:"
+	for hotspot in zone_data.hotspots:
+		label.text += "\n(%d,%d) <%d> %s %s %s" % [
 			hotspot.x, hotspot.y,
-			hotspot.type, Log.get_enum_string(Game.HotspotsYoda, hotspot.type),
-			"" if hotspot.args == 65535 else str("(",hotspot.args,")")
+			hotspot.type, Log.get_enum_string(Game.Hotspots, hotspot.type),
+			"" if hotspot.args == 65535 else str("(",hotspot.args,")"),
+			"" if hotspot.enabled else "(off)"
 		]
 #		tiles_htsp.set_cell(hotspot.x,hotspot.y,0)
 	
-	$Label.text += "\n\nMonsters:"
-	for monster in Game.SECTIONS.ZAUX[id].monsters:
-		$Label.text += "\n(%d,%d) <%d> %s" % [
+	label.text += "\n\nMonsters:"
+	for monster in zone_data.monsters:
+		label.text += "\n(%d,%d) <%d> %s" % [
 			monster.x, monster.y,
-			monster.id, "??"#, Log.get_enum_string(HotspotsYoda, hotspot.type),
-			#"" if hotspot.args == 65535 else str("(",hotspot.args,")")
+			monster.id, Game.get_tile_data(monster.id).name
 		]
 #		tiles_mnstr.set_cell(monster.x,monster.y,0)
-	$Label.text += "\n\nRequired items:"
-	for item in Game.SECTIONS.ZAUX[id].items:
-		$Label.text += "\n<%d> %s" % [
-			item,
-			"??"#, Log.get_enum_string(HotspotsYoda, hotspot.type),
-			#"" if hotspot.args == 65535 else str("(",hotspot.args,")")
-		]
-	$Label.text += "\n\nRewards:"
-	for item in Game.SECTIONS.ZAX2[id]:
-		$Label.text += "\n<%d> %s" % [
-			item,
-			"??"#, Log.get_enum_string(HotspotsYoda, hotspot.type),
-			#"" if hotspot.args == 65535 else str("(",hotspot.args,")")
-		]
-
-	$Label.text += "\n\nNPCs:"
-	for npc in Game.SECTIONS.ZAX3[id]:
-		$Label.text += "\n<%d> %s" % [
-			npc,
-			"??"#, Log.get_enum_string(HotspotsYoda, hotspot.type),
-			#"" if hotspot.args == 65535 else str("(",hotspot.args,")")
-		]
+	label.text += "\n\nRequired items:"
+	for item in zone_data.required_items:
+		label.text += "\n<%d> %s" % [item, Game.get_tile_data(item).name]
+	label.text += "\n\nRewards:"
+	for item in zone_data.reward_items:
+		label.text += "\n<%d> %s" % [item, Game.get_tile_data(item).name]
+	label.text += "\n\nNPCs:"
+	for npc in zone_data.npcs:
+		label.text += "\n<%d> %s" % [npc, Game.get_tile_data(npc).name]
 
 # Called when the node enters the scene tree for the first time.
 func _ready():
@@ -60,7 +50,8 @@ func _ready():
 	Game.WALL_TILES = $Walls
 	Game.ROOF_TILES = $Ceiling
 	load_indy()
-	Game.load_zone(120)
+	load_zone(120, Vector2())
+#	Game.load_zone(120)
 #	load_zone(121)
 	
 #	$SplashScreen.texture = texture_from_data(Game.SECTIONS["STUP"], 288, 288, PALETTE_INDY)
@@ -72,7 +63,9 @@ func _ready():
 
 # Called every frame. 'delta' is the elapsed time since the previous frame.
 func _process(delta):
-	$UI/Label2.text = "state: %s\n" % [Log.get_enum_string(HERO.States, HERO.state)]
+	$UI/Label2.text = "current_zone: %s\n" % [Game.get_hero_current_zone()]
+	$UI/Label2.text += "rooms_stack: %s\n" % [Game.ROOMS_STACK]
+	$UI/Label2.text += "state: %s\n" % [Log.get_enum_string(HERO.States, HERO.state)]
 	$UI/Label2.text += "tile_current: %s\n" % [HERO.tile_current]
 	$UI/Label2.text += "tile_target: %s\n" % [HERO.tile_target]
 	$UI/Label2.text += "linked_object: %s\n" % [HERO.linked_object]
@@ -84,7 +77,8 @@ func _process(delta):
 
 
 func _on_Button_pressed():
-#	Game.load_zone(120)
+#	load_zone(120)
+	Game.load_zone(120, Vector2())
 #	Game.load_zone(121, Vector2(0, -18))
 #	generate_tileset()
 #	generate_spritesheets()
@@ -97,4 +91,4 @@ func _on_Button_pressed():
 
 
 func _on_SpinBox_value_changed(value):
-	load_zone(int(value))
+	load_zone(int(value), Vector2())

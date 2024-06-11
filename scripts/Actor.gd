@@ -1,5 +1,7 @@
 extends Node2D
 
+export var is_hero : bool = false
+
 onready var sprite = $Character
 
 func play_anim(anim, directional = true):
@@ -115,7 +117,7 @@ func do_movement(delta):
 			# update target tile ONLY if there is an actual movement
 			if moved_input != Vector2():
 				tile_target = tile_current + moved_input
-	
+
 			# finalize movement -- move towards the target tile (clamped so it doesn't overshoot)
 			var target_displacement = Game.to_vector(tile_target) - position
 			var max_displacement = 200.0 * delta
@@ -125,6 +127,8 @@ func do_movement(delta):
 			
 			# update states accordingly
 			if target_displacement == Vector2():
+				if state == States.walk_grid:
+					Game.do_triggers(tile_current)
 				state = States.idle
 			else:
 				state = States.walk_grid
@@ -150,6 +154,8 @@ func _process(delta):
 
 # Called when the node enters the scene tree for the first time.
 func _ready():
+	if is_hero:
+		Game.HERO_ACTOR = self
 	$Attack_N.frames = Game.ATTACK_SPRITESHEET
 	$Attack_S.frames = Game.ATTACK_SPRITESHEET
 	$Attack_W.frames = Game.ATTACK_SPRITESHEET

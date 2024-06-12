@@ -46,11 +46,13 @@ func load_zone(id, map_origin):
 
 # Called when the node enters the scene tree for the first time.
 func _ready():
+	Game.WORLD_ROOT = self
 	Game.FLOOR_TILES = $Floor
 	Game.WALL_TILES = $Walls
 	Game.ROOF_TILES = $Ceiling
 	load_indy()
-	load_zone(120, Vector2())
+#	load_zone(120, Vector2())
+	Game.new_game()
 #	Game.load_zone(120)
 #	load_zone(121)
 	
@@ -63,22 +65,25 @@ func _ready():
 
 # Called every frame. 'delta' is the elapsed time since the previous frame.
 func _process(delta):
-	$UI/Label2.text = "current_zone: %s\n" % [Game.get_hero_current_zone()]
+	$UI/Label2.text = "current_zone: %s\n" % [Game.CURRENT_ZONE]
 	$UI/Label2.text += "rooms_stack: %s\n" % [Game.ROOMS_STACK]
 	$UI/Label2.text += "state: %s\n" % [Log.get_enum_string(HERO.States, HERO.state)]
 	$UI/Label2.text += "tile_current: %s\n" % [HERO.tile_current]
 	$UI/Label2.text += "tile_target: %s\n" % [HERO.tile_target]
 	$UI/Label2.text += "linked_object: %s\n" % [HERO.linked_object]
 	
-	$ColorRect.rect_position = Game.to_vector(HERO.tile_target)
-	$ColorRect2.rect_position = Game.to_vector(HERO.tile_current)
+#	$ColorRect.rect_position = Game.to_vector(HERO.tile_target)
+#	$ColorRect2.rect_position = Game.to_vector(HERO.tile_current)
 	
 #	HERO.position += Vector2(2.0*randf()-1.0,2.0*randf()-1.0) * 25.0
+
+	$UI/FPS.text = str(Engine.get_frames_per_second()," FPS")
 
 
 func _on_Button_pressed():
 #	load_zone(120)
-	Game.load_zone(120, Vector2())
+	load_zone(120, Vector2())
+#	Game.load_zone(120, Vector2())
 #	Game.load_zone(121, Vector2(0, -18))
 #	generate_tileset()
 #	generate_spritesheets()

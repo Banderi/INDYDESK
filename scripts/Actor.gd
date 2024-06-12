@@ -10,7 +10,6 @@ func play_anim(anim, directional = true):
 	if sprite.animation != anim:
 		sprite.play(anim)
 
-var state = 0
 enum States {
 	idle,
 	walk,
@@ -18,16 +17,26 @@ enum States {
 	##
 	attack
 }
+var state = States.idle
 
-var selected_weapon = "WhipWeapon"
+var selected_weapon = 1
 func do_attack():
 	if state == States.idle:
 		state = States.attack
+		var weapon_data = Game.DATA.characters[selected_weapon] 
+		Game.play_sound(weapon_data.weapon_refid)
 
 var USE_GRID = true
 onready var tile_current = Game.to_tile(position)
 onready var tile_fractional = Game.to_tile(position, false)
 onready var tile_target = Vector2(floor(tile_current.x), floor(tile_current.y))
+
+var last_bumped_tile = null # spam prevention
+func bump_into(bumped_tile):
+	if last_bumped_tile != bumped_tile:
+		last_bumped_tile = bumped_tile
+		return Game.do_actions()
+	return false
 
 var linked_object = null
 func link_object(obj):
@@ -35,24 +44,29 @@ func link_object(obj):
 		linked_object.linked_actor = null
 		linked_object.reparent(Game.WALL_TILES)
 		linked_object.recenter()
+		Game.play_sound(1)
 	if obj != null:
 		obj.linked_actor = self
 		obj.reparent(self)
 	linked_object = obj
-func attempt_moving_into(moved_input):
-	var target_is_obstructed = Game.is_tile_obstructed(tile_current + moved_input)
-	var is_diagonal = moved_input.x != 0 && moved_input.y != 0
+func attempt_moving_into(attempted_input):
+	var target_is_obstructed = Game.is_tile_obstructed(tile_current + attempted_input)
+	var is_diagonal = attempted_input.x != 0 && attempted_input.y != 0
 	
 	# no general obstructions
 	if !target_is_obstructed:
 		if !is_diagonal && Input.is_action_pressed("drag"):
-			var object = Game.get_object_at(tile_current - moved_input)
+			var object = Game.get_object_at(tile_current - attempted_input)
 			if object != null:
 				link_object(object)
-		return moved_input
+		return attempted_input
 	
-	var x_only = moved_input * Vector2(1,0)
-	var y_only = moved_input * Vector2(0,1)
+	# if bumping triggers an action, don't move
+	if bump_into(tile_current + attempted_input):
+		return Vector2()
+	
+	var x_only = attempted_input * Vector2(1,0)
+	var y_only = attempted_input * Vector2(0,1)
 	var x_is_obstructed = Game.is_tile_obstructed(tile_current + x_only)
 	var y_is_obstructed = Game.is_tile_obstructed(tile_current + y_only)
 	
@@ -65,17 +79,24 @@ func attempt_moving_into(moved_input):
 		elif x_is_obstructed:
 			return y_only
 	elif Input.is_action_pressed("drag"):
-		var object = Game.get_object_at(tile_current + moved_input)
+		var object = Game.get_object_at(tile_current + attempted_input)
 		if object != null:
-			if !Game.is_tile_obstructed(tile_current + 2 * moved_input):
+			if !Game.is_tile_obstructed(tile_current + 2 * attempted_input):
 				link_object(object)
-				return moved_input
+				return attempted_input
 	
 	# normal obstruction
 	return Vector2()
 
 var last_direction : String = "_S"
+var t = 0
 func do_movement(delta):
+	t += delta
+#	position = Vector2(sin(t),cos(t)) * 200.0
+	
+#	return
+	
+	
 	# update current tile
 	tile_fractional = Game.to_tile(position, false)
 	tile_current = Game.round_vector(tile_fractional)
@@ -85,24 +106,25 @@ func do_movement(delta):
 			
 			# get movement INPUT VECTOR only when centered on the tile
 			var moved_input = Vector2()
-			if tile_fractional == tile_current:
+			var attempted_input = Vector2()
+			if tile_fractional == tile_current && Game.can_control_hero():
 				link_object(null)
 				if Input.is_action_pressed("up"):
-					moved_input += Vector2(0,-1)
+					attempted_input += Vector2(0,-1)
 					last_direction = "_N"
 				if Input.is_action_pressed("down"):
-					moved_input += Vector2(0,1)
+					attempted_input += Vector2(0,1)
 					last_direction = "_S"
 				if Input.is_action_pressed("left"):
-					moved_input += Vector2(-1,0)
+					attempted_input += Vector2(-1,0)
 					last_direction = "_W"
 				if Input.is_action_pressed("right"):
-					moved_input += Vector2(1,0)
+					attempted_input += Vector2(1,0)
 					last_direction = "_E"
 				
 				# if an input is attempted, follow up on it
-				if moved_input != Vector2():
-					moved_input = attempt_moving_into(moved_input)
+				if attempted_input != Vector2():
+					moved_input = attempt_moving_into(attempted_input)
 					
 					# correct direction depending on actual movement
 					if moved_input.x == -1:
@@ -113,6 +135,8 @@ func do_movement(delta):
 						last_direction = "_N"
 					elif moved_input.y == 1:
 						last_direction = "_S"
+				else:
+					last_bumped_tile = null # reset the "bump" spam prevention if inputs are released
 			
 			# update target tile ONLY if there is an actual movement
 			if moved_input != Vector2():
@@ -127,8 +151,10 @@ func do_movement(delta):
 			
 			# update states accordingly
 			if target_displacement == Vector2():
-				if state == States.walk_grid:
-					Game.do_triggers(tile_current)
+				if state != States.idle:
+					Game.do_hotspots(tile_current)
+					if last_bumped_tile == null: # only perform actions IF it wasn't already done previously during the "bumping" check!
+						Game.do_actions()
 				state = States.idle
 			else:
 				state = States.walk_grid
@@ -148,8 +174,9 @@ func _process(delta):
 		States.walk, States.walk_grid:
 			play_anim("walk")
 		States.attack:
-			play_anim(selected_weapon)
-			get_node("Attack" + last_direction).play(selected_weapon + last_direction)
+			var weapon_data = Game.DATA.characters[selected_weapon]
+			play_anim(weapon_data.name)
+			get_node("Attack" + last_direction).play(weapon_data.name + last_direction)
 
 
 # Called when the node enters the scene tree for the first time.

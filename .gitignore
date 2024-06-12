@@ -1,4 +1,5 @@
 assets/*/*.png
+audio/sfx/*
 
 # Godot-specific ignores
 build/

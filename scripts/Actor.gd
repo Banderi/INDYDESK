@@ -12,13 +12,14 @@ func play_anim(anim, directional = true):
 
 enum States {
 	idle,
-	walk,
 	walk_grid,
+	walk_grid_centered,
 	##
 	attack
 }
 var state = States.idle
 
+# Attack logic
 var selected_weapon = 1
 func do_attack():
 	if state == States.idle:
@@ -26,6 +27,11 @@ func do_attack():
 		var weapon_data = Game.DATA.characters[selected_weapon] 
 		Game.play_sound(weapon_data.weapon_refid)
 
+# HP
+const MAX_HEALTH = 0x300
+var health = MAX_HEALTH
+
+# tile vars
 var USE_GRID = true
 onready var tile_current = Game.to_tile(position)
 onready var tile_fractional = Game.to_tile(position, false)
@@ -39,13 +45,15 @@ func bump_into(bumped_tile):
 	return false
 
 var linked_object = null
+var last_attempted_input = Vector2()
+var force_release_input = 0.0
 func link_object(obj):
 	if linked_object != null:
 		linked_object.linked_actor = null
 		linked_object.reparent(Game.WALL_TILES)
 		linked_object.recenter()
-		Game.play_sound(1)
 	if obj != null:
+		Game.play_sound(1)
 		obj.linked_actor = self
 		obj.reparent(self)
 	linked_object = obj
@@ -57,12 +65,13 @@ func attempt_moving_into(attempted_input):
 	if !target_is_obstructed:
 		if !is_diagonal && Input.is_action_pressed("drag"):
 			var object = Game.get_object_at(tile_current - attempted_input)
-			if object != null:
+			if object != null && object.is_in_group("draggable"):
 				link_object(object)
 		return attempted_input
 	
 	# if bumping triggers an action, don't move
 	if bump_into(tile_current + attempted_input):
+		force_release_input = 0.25
 		return Vector2()
 	
 	var x_only = attempted_input * Vector2(1,0)
@@ -89,20 +98,17 @@ func attempt_moving_into(attempted_input):
 	return Vector2()
 
 var last_direction : String = "_S"
-var t = 0
 func do_movement(delta):
-	t += delta
-#	position = Vector2(sin(t),cos(t)) * 200.0
-	
-#	return
-	
-	
 	# update current tile
 	tile_fractional = Game.to_tile(position, false)
 	tile_current = Game.round_vector(tile_fractional)
 	
 	match state:
-		States.idle, States.walk, States.walk_grid:
+		States.idle, States.walk_grid, States.walk_grid_centered:
+			
+			# update the input pause timer
+			if force_release_input > 0:
+				force_release_input -= delta
 			
 			# get movement INPUT VECTOR only when centered on the tile
 			var moved_input = Vector2()
@@ -124,7 +130,9 @@ func do_movement(delta):
 				
 				# if an input is attempted, follow up on it
 				if attempted_input != Vector2():
-					moved_input = attempt_moving_into(attempted_input)
+					if force_release_input <= 0.0 || last_attempted_input != attempted_input: # if inputs are paused, skip.
+						force_release_input = 0.0
+						moved_input = attempt_moving_into(attempted_input)
 					
 					# correct direction depending on actual movement
 					if moved_input.x == -1:
@@ -136,7 +144,12 @@ func do_movement(delta):
 					elif moved_input.y == 1:
 						last_direction = "_S"
 				else:
-					last_bumped_tile = null # reset the "bump" spam prevention if inputs are released
+					# reset the "bump" spam prevention and input pausing if inputs are released
+					last_bumped_tile = null
+					force_release_input = 0.0
+				
+				# remember the input vector for next frame usage
+				last_attempted_input = attempted_input
 			
 			# update target tile ONLY if there is an actual movement
 			if moved_input != Vector2():
@@ -149,16 +162,21 @@ func do_movement(delta):
 				clamp(target_displacement.x, -max_displacement, max_displacement),
 				clamp(target_displacement.y, -max_displacement, max_displacement))
 			
-			# update states accordingly
-			if target_displacement == Vector2():
-				if state != States.idle:
-					Game.do_hotspots(tile_current)
-					if last_bumped_tile == null: # only perform actions IF it wasn't already done previously during the "bumping" check!
-						Game.do_actions()
-				state = States.idle
+			# update states
+			if tile_target == Game.to_tile(position, false):
+				if target_displacement == Vector2():
+					state = States.idle
+					Game.do_actions()
+				else:
+					state = States.walk_grid_centered
 			else:
 				state = States.walk_grid
 	
+			# do triggers (hotspots / actions) when landed on a tile center
+			if state == States.walk_grid_centered:	
+				Game.do_hotspots(tile_current)
+#				if last_bumped_tile == null: # only perform actions IF it wasn't already done previously during the "bumping" check!
+#					Game.do_actions()
 
 # Called every frame. 'delta' is the elapsed time since the previous frame.
 func _process(delta):
@@ -171,7 +189,7 @@ func _process(delta):
 	match state:
 		States.idle:
 			play_anim("idle")
-		States.walk, States.walk_grid:
+		States.walk_grid, States.walk_grid_centered:
 			play_anim("walk")
 		States.attack:
 			var weapon_data = Game.DATA.characters[selected_weapon]

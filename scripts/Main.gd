@@ -47,6 +47,7 @@ func load_zone(id, map_origin):
 # Called when the node enters the scene tree for the first time.
 func _ready():
 	Game.WORLD_ROOT = self
+	Game.UI_ROOT = $UI
 	Game.FLOOR_TILES = $Floor
 	Game.WALL_TILES = $Walls
 	Game.ROOF_TILES = $Ceiling
@@ -55,6 +56,9 @@ func _ready():
 	Game.new_game()
 #	Game.load_zone(120)
 #	load_zone(121)
+
+#	Game.speech_bubble(HERO.tile_current,"Ahh, my home away from home...")
+#	Game.speech_bubble(HERO.tile_current,"Ahh, my home away from home...\n\nLINE3...\nLINE4...")
 	
 #	$SplashScreen.texture = texture_from_data(Game.SECTIONS["STUP"], 288, 288, PALETTE_INDY)
 	
@@ -64,12 +68,12 @@ func _ready():
 	HERO.sprite.connect("animation_finished", HERO, "_on_Character_animation_finished")
 
 # Called every frame. 'delta' is the elapsed time since the previous frame.
-func _process(delta):
-	$UI/Label2.text = "current_zone: %s\n" % [Game.CURRENT_ZONE]
+func _process(_delta):
+	$UI/Label2.text = "current_zone: <%s> %s\n" % [Game.CURRENT_ZONE, Game.DATA.zones[Game.CURRENT_ZONE].name]
 	$UI/Label2.text += "rooms_stack: %s\n" % [Game.ROOMS_STACK]
 	$UI/Label2.text += "state: %s\n" % [Log.get_enum_string(HERO.States, HERO.state)]
-	$UI/Label2.text += "tile_current: %s\n" % [HERO.tile_current]
-	$UI/Label2.text += "tile_target: %s\n" % [HERO.tile_target]
+	$UI/Label2.text += "tile_current: %s rel. %s\n" % [HERO.tile_current, Game.to_zone_relative(HERO.tile_current)]
+	$UI/Label2.text += "tile_target: %s rel. %s\n" % [HERO.tile_target, Game.to_zone_relative(HERO.tile_target)]
 	$UI/Label2.text += "linked_object: %s\n" % [HERO.linked_object]
 	
 #	$ColorRect.rect_position = Game.to_vector(HERO.tile_target)
@@ -82,7 +86,9 @@ func _process(delta):
 
 func _on_Button_pressed():
 #	load_zone(120)
-	load_zone(120, Vector2())
+#	load_zone(120, Vector2())
+#	Game.speech_bubble(HERO.tile_current,"Ahh, my home away from home...")
+	Game.speech_bubble(HERO.tile_current,"Ahh, my home away from home...\n\nLINE3...\nLINE4...")
 #	Game.load_zone(120, Vector2())
 #	Game.load_zone(121, Vector2(0, -18))
 #	generate_tileset()

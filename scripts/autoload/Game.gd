@@ -1,6 +1,9 @@
 extends Node
 
+var IS_INDY = true
+
 var WORLD_ROOT = null
+var UI_ROOT = null
 var FADE = null
 func fadein():
 	FADE.fade_target = -1
@@ -11,6 +14,8 @@ func fadeout():
 
 func can_control_hero():
 	if FADE.fade_target != 0:
+		return false
+	if SPEECH_PLAYING != null:
 		return false
 	return true
 
@@ -272,6 +277,7 @@ func value_list_flags(value, enums):
 	return flags
 
 # Game data loading
+var GLOBAL_VAR = null
 var DATA = {
 	"splash": null,
 	"sounds": [], # 0 K:\GAME\TEST\SCHWING.WAV
@@ -349,11 +355,11 @@ func load_daw(file_path):
 					var z_total_tiles = z_width * z_height
 					var z_tiles = []
 					for _t in z_total_tiles:
-						z_tiles.push_back({
-							"x": signed_u16(DAW.get_16()),
-							"y": signed_u16(DAW.get_16()),
-							"z": signed_u16(DAW.get_16()),
-						})
+						z_tiles.push_back([
+							signed_u16(DAW.get_16()),
+							signed_u16(DAW.get_16()),
+							signed_u16(DAW.get_16()),
+						])
 					DATA.zones.push_back({
 						"name": "",
 						"width": z_width,
@@ -371,7 +377,10 @@ func load_daw(file_path):
 						
 						"hotspots": [],
 						"puzzle": -1,
-						"actions": []
+						"actions": [],
+						
+						"temp": 0,
+						"random": 0,
 					})
 					if DAW.get_position() > end_of_section:
 						break
@@ -400,7 +409,7 @@ func load_daw(file_path):
 					var _subs_size = DAW.get_32()
 					for _i in DAW.get_16():
 						DATA.zones[i].npcs.push_back(DAW.get_16())
-			"ZAX4": # ???
+			"ZAX4": # ??? ALL of these are... [1, 0] apparently?
 				for i in DATA.zones.size():
 					assert_marker("IZX4")
 					var subs_size = DAW.get_32()
@@ -429,6 +438,7 @@ func load_daw(file_path):
 						var _subs_size = DAW.get_32()
 						var action_data = {
 							"name": "",
+							"enabled": true,
 							"conditions": [],
 							"instructions": [],
 						}
@@ -579,6 +589,20 @@ func load_daw(file_path):
 			"ENDF":
 				assert(s_size == 0)
 	Log.generic(null,"DAW file loaded sucessfully!")
+#	for z in DATA.zones.size():
+##	for z in [333]:
+#		var zone = DATA.zones[z]
+#		for action in zone.actions:
+#			for condition in action.conditions:
+#				if condition.opcode == 0xd:
+##					var strf = (condition.args as PoolByteArray).get_string_from_ascii()
+##					print("%16s %16s %20s (%s)"%[action.name,condition.text,condition.args,strf])
+#					print("%16s %d %16s : 0x%02X (%s)"%[zone.name,z,action.name,condition.opcode,condition.args])
+##			for instruction in action.instructions:
+##				if action.conditions[0].opcode == 0x14:
+###				if action.name == "OnObsidianKe":
+###				if instruction.opcode == 0x1:
+##					print("%16s %d %16s : 0x%02X (%s)"%[zone.name,z,action.name,instruction.opcode,instruction.args])
 
 # Textures
 onready var IMAGE_BUFFER = Image.new()
@@ -658,6 +682,10 @@ func generate_spritesheets():
 var FLOOR_TILES : TileMap = null
 var WALL_TILES : TileMap = null
 var ROOF_TILES : TileMap = null
+func to_zone_relative(tile):
+	return tile - LOADED_ZONES[CURRENT_ZONE].origin
+func to_tile_absolute(tile_relative):
+	return tile_relative + LOADED_ZONES[CURRENT_ZONE].origin
 func to_tile(vector, rounded = true):
 	var tile = (vector - Vector2(16,16)) / 32.0
 	if rounded:
@@ -687,23 +715,33 @@ func get_object_at(tile):
 		if to_tile(obj.position) == tile:
 			return obj
 	return null
-func set_tile_at(tile, level, tile_id, relative = true): # TODO
+func get_tile_at(tile, layer, relative = true):
 	var tile_relative = tile
 	if !relative:
-		tile_relative = tile - LOADED_ZONES[CURRENT_ZONE].origin
+		tile_relative = to_zone_relative(tile)
 	else:
-		tile = tile + LOADED_ZONES[CURRENT_ZONE].origin
+		tile = to_tile_absolute(tile_relative)
+	
+	var zone_data = DATA.zones[CURRENT_ZONE]
+	return zone_data.tiles[tile_relative.y * zone_data.width + tile_relative.x][layer]
+func set_tile_at(tile, layer, tile_id, relative = true, do_not_update_tilemap = false):
+	var tile_relative = tile
+	if !relative:
+		tile_relative = to_zone_relative(tile)
+	else:
+		tile = to_tile_absolute(tile_relative)
 	
 	var zone_data = DATA.zones[CURRENT_ZONE]
 	var tile_layers = zone_data.tiles[tile_relative.y * zone_data.width + tile_relative.x]
-	match level:
-		0:
-			FLOOR_TILES.set_cellv(tile, tile_id)
-		1:
-			WALL_TILES.set_cellv(tile, tile_id)
-		2:
-			ROOF_TILES.set_cellv(tile, tile_id)
-	tile_layers[level] = tile_id
+	if !do_not_update_tilemap:
+		match layer:
+			0:
+				FLOOR_TILES.set_cellv(tile, tile_id)
+			1:
+				WALL_TILES.set_cellv(tile, tile_id)
+			2:
+				ROOF_TILES.set_cellv(tile, tile_id)
+	tile_layers[layer] = tile_id
 
 var LOADED_ZONES = {}
 func unload_all_zones():
@@ -739,17 +777,28 @@ func load_zone(zone_id, map_origin):
 			var world_tile_coords = Vector2(x, y) + map_origin
 			
 			# for object (wall) tiles, only set the tilemap for non-moveable walls
-			var wall_flags = get_tile_flags(tile_layers.y)
-			if wall_flags & ~(TileFlags.has_transparency + TileFlags.is_wall):
+			var wall_flags = get_tile_flags(tile_layers[1])
+			if wall_flags & ~(TileFlags.has_transparency + TileFlags.is_floor + TileFlags.is_wall + TileFlags.is_roof):
 				print(world_tile_coords," ", value_list_flags(wall_flags,TileFlags))
-			if wall_flags & TileFlags.is_draggable:
-				spawn_object(tile_layers.y, world_tile_coords.x, world_tile_coords.y, zone_id)
+#			if wall_flags & (TileFlags.is_draggable):
+				var obj = spawn_object(tile_layers[1], world_tile_coords.x, world_tile_coords.y, zone_id)
+				obj.tile_flags = wall_flags
+				if wall_flags & TileFlags.is_draggable:
+					obj.add_to_group("draggable")
+				if wall_flags & TileFlags.is_locator:
+					obj.add_to_group("locator")
+				if wall_flags & TileFlags.is_item:
+					obj.add_to_group("item")
+				if wall_flags & TileFlags.is_weapon:
+					obj.add_to_group("weapon")
+				if wall_flags & TileFlags.is_character:
+					obj.add_to_group("character")
 			else:
-				WALL_TILES.set_cellv(world_tile_coords, tile_layers.y)
+				WALL_TILES.set_cellv(world_tile_coords, tile_layers[1])
 			
 			# for floor and roof (ceiling) tiles, go ahead
-			FLOOR_TILES.set_cellv(world_tile_coords, tile_layers.x)
-			ROOF_TILES.set_cellv(world_tile_coords, tile_layers.z)
+			FLOOR_TILES.set_cellv(world_tile_coords, tile_layers[0])
+			ROOF_TILES.set_cellv(world_tile_coords, tile_layers[2])
 			
 			# save hotspots (triggers) into the lookup
 			for hotspot in zone_data.hotspots:
@@ -761,13 +810,14 @@ func load_zone(zone_id, map_origin):
 		"loaded": true
 	}
 	update_current_zone()
+	JUST_ENTERED_ZONE = true
 	Log.generic(null,"Loaded zone: %d at %s" % [zone_id, map_origin])
 	return zone_data
-func save_zone_data(): # TODO
-	pass
 
 var ROOMS_STACK = []
 var CURRENT_ZONE = -1
+var JUST_ENTERED_ZONE = false # set by load_zone() and reset by do_actions()
+var JUST_ENTERED_ZONE_BY_VEHICLE = false # set by load_zone() and reset by do_actions()
 func update_current_zone():
 	var hero_tile = HERO_ACTOR.tile_current
 	for zone_id in LOADED_ZONES:
@@ -836,225 +886,377 @@ func do_hotspots(tile): # hotspots (tile-based triggers)
 				_:
 					pass
 
+var GAME_EXP = 0
 func do_actions(): # actions (scripts)
 	# this is SUPER INEFFICIENT... would need to do a complete system rewrite to optimize, eh.
 	var action_was_executed = false
 	for action in DATA.zones[CURRENT_ZONE].actions:
 		if do_action_script(action):
 			action_was_executed = true
+	JUST_ENTERED_ZONE = false
 	return action_was_executed
 func do_action_script(action):
-	if action.name == "PopDoor":
-		pass
+	if !action.enabled:
+		return
+#	print(action.name)
+#	if action.name == "SetUpPotion":
+#		pass
 	for condition in action.conditions:
-		if !evaluate_action_condition(condition):
+		if !evaluate_action_condition(condition, action):
 			return false
 	print(action.name)
 	for instruction in action.instructions:
-		perform_action_instruction(instruction)
+		perform_action_instruction(instruction, action)
 	return true
-func evaluate_action_condition(condition):
+enum CondYODA {
+	zone_not_initialised = 0x0
+	zone_entered = 0x1
+	bumped_into = 0x2
+	used_item_on = 0x3
+	standing_on = 0x4
+	temp_is = 0x5
+	random_is = 0x6
+	random_is_greater_than = 0x7
+	random_is_less_than = 0x8
+	enter_by_vehicle = 0x9
+	tile_at_is = 0xa
+	monster_is_dead = 0xb
+	all_monsters_are_dead = 0xc
+	has_item = 0xd
+	required_item_is = 0xe
+	starting_item_is = 0xf
+	zone_is_solved = 0x10
+	no_item_placed = 0x11
+	item_placed = 0x12
+	health_is_less_than = 0x13
+	health_is_greater_than = 0x14
+#	UNUSED15 = 0x15
+	find_item_is = 0x16
+	used_item_is_not = 0x17
+	hero_is_at = 0x18
+	global_var_is = 0x19
+	global_var_is_less_than = 0x1a
+	global_var_is_greater_than = 0x1b
+	exp_is = 0x1c
+	drops_quest_item_at = 0x1d
+	has_any_required_item = 0x1e
+	temp_is_not = 0x1f
+	random_is_not = 0x20
+	global_var_is_not = 0x21
+	tile_var_is = 0x22
+	exp_greater_than = 0x23
+	#
+	game_not_completed
+	game_is_completed
+}
+enum CondINDY {
+#	UNUSED0 = 0x0
+	standing_on = 0x1
+	bumped_into = 0x2
+	used_item_on = 0x3
+	zone_not_initialised = 0x4
+	zone_entered = 0x5
+	temp_is = 0x6
+#	UNUSED7 = 0x7
+#	UNUSED8 = 0x8
+	game_not_completed = 0x9 # ??
+	has_item = 0xa
+#	UNUSEDB = 0xb
+	random_is_greater_than = 0xc
+	random_is = 0xd
+	random_is_less_than = 0xe
+	zone_is_solved = 0xf # maybe?
+	enter_by_vehicle = 0x10
+	monster_is_dead = 0x11
+	all_monsters_are_dead = 0x12
+	tile_at_is = 0x13
+	item_placed = 0x14 # maybe?
+	required_item_is = 0x15 # maybe?
+	health_is_less_than = 0x16
+	##
+	health_is_greater_than
+	starting_item_is
+	no_item_placed
+	find_item_is
+	used_item_is_not
+	hero_is_at
+	global_var_is
+	global_var_is_less_than
+	global_var_is_greater_than
+	exp_is
+	drops_quest_item_at
+	has_any_required_item
+	temp_is_not
+	random_is_not
+	global_var_is_not
+	tile_var_is
+	exp_greater_than
+	game_is_completed
+}
+func evaluate_action_condition(condition, action):
+	if CURRENT_ZONE == 333:
+		pass
+	var opcodes = CondINDY if IS_INDY else CondYODA
 	match condition.opcode:
-		0x0: # zone_not_initialised
-			pass # doc: Evaluates to true exactly once (used for initialisation)
-		0x1: # zone_entered
-			pass # doc: Evaluates to true if hero just entered the zone
-		0x2: # bump
-			if HERO_ACTOR.last_bumped_tile == Vector2(condition.args[0], condition.args[1]) + LOADED_ZONES[CURRENT_ZONE].origin:
+		opcodes.zone_not_initialised: # Evaluates to true exactly once (used for initialisation)
+			if !condition.met:
+				condition.met = true
 				return true
-		0x3: # placed_item_is
+		opcodes.zone_entered: # Evaluates to true if hero just entered the zone
+			return JUST_ENTERED_ZONE
+		opcodes.bumped_into: # This MUST ignore draggable items!
+			var obj = get_object_at(HERO_ACTOR.last_bumped_tile)
+			if obj == null || !obj.is_in_group("draggable"):
+				return HERO_ACTOR.last_bumped_tile == to_tile_absolute(Vector2(condition.args[0], condition.args[1]))
+		opcodes.used_item_on:
 			pass
-		0x4: # standing_on
-			pass # doc: |
-			pass # Check if hero is at `args[0]`x`args[1]` and the floor tile is
-			pass # `args[2]`
-		0x5: # counter_is
-			pass # doc: Current zone's `counter` value is equal to `args[0]`
-		0x6: # random_is
-			pass # doc: Current zone's `random` value is equal to `args[0]`
-		0x7: # random_is_greater_than
-			pass # doc: Current zone's `random` value is greater than `args[0]`
-		0x8: # random_is_less_than
-			pass # doc: Current zone's `random` value is less than `args[0]`
-		0x9: # enter_by_plane
+		opcodes.standing_on: # Check if hero is at `args[0]`x`args[1]` and the floor tile is `args[2]`
+			return HERO_ACTOR.tile_current == to_tile_absolute(Vector2(condition.args[0], condition.args[1])) && get_tile_at(HERO_ACTOR.tile_current, 0, false) == condition.args[2]
+		opcodes.temp_is: # Current zone's `temp` value is equal to `args[0]`
+			return DATA.zones[CURRENT_ZONE].temp == condition.args[0]
+		opcodes.random_is: # Current zone's `random` value is equal to `args[0]`
+			return DATA.zones[CURRENT_ZONE].random == condition.args[0]
+		opcodes.random_is_greater_than: # Current zone's `random` value is greater than `args[0]`
+			return DATA.zones[CURRENT_ZONE].random > condition.args[0]
+		opcodes.random_is_less_than: # Current zone's `random` value is less than `args[0]`
+			return DATA.zones[CURRENT_ZONE].random < condition.args[0]
+		opcodes.enter_by_vehicle:
+			return JUST_ENTERED_ZONE_BY_VEHICLE
+		opcodes.tile_at_is, opcodes.tile_var_is: # Check if tile at `args[0]`x`args[1]`x`args[2]` is equal to `args[3]`
+			return get_tile_at(Vector2(condition.args[1], condition.args[2]), condition.args[3]) == signed_u16(condition.args[0])
+		opcodes.monster_is_dead: # True if monster `args[0]` is dead
 			pass
-		0xa: # tile_at_is
-			pass # doc: |
-			pass # Check if tile at `args[0]`x`args[1]`x`args[2]` is equal to
-			pass # `args[3]`
-		0xb: # monster_is_dead
-			pass # doc: True if monster `args[0]` is dead.
-		0xc: # has_no_active_monsters
-			pass # doc: undefined
-		0xd: # has_item
-			pass # doc: |
-			pass # True if inventory contains `args[0]`.  If `args[0]` is `0xFFFF`
-			pass # check if inventory contains the item provided by the current
-			pass # zone's puzzle
-		0xe: # required_item_is
+		opcodes.all_monsters_are_dead: # True if all the monsters on this zone have been defeated
 			pass
-		0xf: # ending_is
-			pass # doc: True if `args[0]` is equal to current goal item id
-		0x10: # zone_is_solved
-			pass # doc: True if the current zone is solved
-		0x11: # no_item_placed
-			pass # doc: Returns true if the user did not place an item
-		0x12: # item_placed
-			pass # doc: Returns true if the user placed an item
-		0x13: # health_is_less_than
-			pass # doc: Hero's health is less than `args[0]`.
-		0x14: # health_is_greater_than
-			pass # doc: Hero's health is greater than `args[0]`.
-		0x15: # unused
+		opcodes.has_item: # True if inventory contains `args[0]`.  If `args[0]` is `0xFFFF` check if inventory contains the item provided by the current zone's puzzle
 			pass
-		0x16: # find_item_is
-			pass # doc: True the item provided by current zone is `args[0]`
-		0x17: # placed_item_is_not
+		opcodes.required_item_is:
 			pass
-		0x18: # hero_is_at
-			pass # doc: True if hero's x/y position is `args_0`x`args_1`.
-		0x19: # shared_counter_is
-			pass # doc: Current zone's `shared_counter` value is equal to `args[0]`
-		0x1a: # shared_counter_is_less_than
-			pass # doc: Current zone's `shared_counter` value is less than `args[0]`
-		0x1b: # shared_counter_is_greater_than
-			pass # doc: Current zone's `shared_counter` value is greater than `args[0]`
-		0x1c: # games_won_is
-			pass # doc: Total games won is equal to `args[0]`
-		0x1d: # drops_quest_item_at
+		opcodes.starting_item_is: # True if `args[0]` is equal to world starting item id
 			pass
-		0x1e: # has_any_required_item
-			pass # doc: |
-			pass # Determines if inventory contains any of the required items needed
-			pass # for current zone
-		0x1f: # counter_is_not
-			pass # doc: Current zone's `counter` value is not equal to `args[0]`
-		0x20: # random_is_not
-			pass # doc: Current zone's `random` value is not equal to `args[0]`
-		0x21: # shared_counter_is_not
-			pass # doc: Current zone's `shared_counter` value is not equal to `args[0]`
-		0x22: # is_variable
-			pass # doc: |
-			pass # Check if variable identified by `args[0]`⊕`args[1]`⊕`args[2]` is
-			pass # set to `args[3]`. Internally this is implemented as opcode 0x0a,
-			pass # check if tile at `args[0]`x`args[1]`x`args[2]` is equal to
-			pass # `args[3]`
-		0x23: # games_won_is_greater_than
-			pass # doc: True, if total games won is greater than `args[0]`
+		opcodes.zone_is_solved: # True if the current zone is solved
+			  # INDY: Used in map 150, also in early maps in Indy with leaked text "Pick"
+			pass
+		opcodes.game_not_completed:
+			return !IS_WON_GAME
+		opcodes.game_is_completed:
+			return IS_WON_GAME
+		opcodes.no_item_placed: # Returns true if the user did not place an item
+			  # INDY: game_not_completed: # Never used
+			pass
+		opcodes.item_placed: # Returns true if the user placed an item
+			  # INDY: game_completed: # Never used
+			pass
+		opcodes.health_is_less_than: # Hero's health is less than `args[0]`
+			pass
+		opcodes.health_is_greater_than: # Hero's health is greater than `args[0]`
+			pass
+#		opcodes.unused:
+#			pass
+		opcodes.find_item_is: # True if the item provided by current zone is `args[0]`, related to 0x10
+			pass
+		opcodes.used_item_is_not:
+			pass
+		opcodes.hero_is_at: # True if hero's x/y position is `args_0`x`args_1`.
+			pass
+		opcodes.global_var_is: # Current zone's `global_var` value is equal to `args[0]`
+			return GLOBAL_VAR == condition.args[0]
+		opcodes.global_var_is_less_than: # Current zone's `global_var` value is less than `args[0]`
+			return GLOBAL_VAR < condition.args[0]
+		opcodes.global_var_is_greater_than: # Current zone's `global_var` value is greater than `args[0]`
+			return GLOBAL_VAR > condition.args[0]
+		opcodes.exp_is: # (games_won_is): # Total game experience is equal to `args[0]`, used in map 94 (Dagobah) a lot
+			return GAME_EXP == condition.args[0]
+		opcodes.drops_quest_item_at: # Used in map 57, 139, 160 a lot, related to script cmd 15/16? Checks goals?
+			pass
+		opcodes.has_any_required_item: # Determines if inventory contains any of the required items needed for current zone
+			pass
+		opcodes.temp_is_not: # Current zone's `temp` value is not equal to `args[0]`
+			return DATA.zones[CURRENT_ZONE].temp != condition.args[0]
+		opcodes.random_is_not: # Current zone's `random` value is not equal to `args[0]`
+			return DATA.zones[CURRENT_ZONE].random != condition.args[0]
+		opcodes.global_var_is_not: # Current zone's `global_var` value is not equal to `args[0]`
+			return GLOBAL_VAR != condition.args[0]
+		opcodes.exp_greater_than: # (games_won_is_greater_than): # True, if total game experience is greater than `args[0]`
+			return GAME_EXP > condition.args[0]
 	return false
-func perform_action_instruction(instruction):
+enum InstrYODA {
+	place_tile = 0x0
+	remove_tile = 0x1
+	move_tile = 0x2
+	draw_tile = 0x3
+	speak_hero = 0x4
+	speak_npc = 0x5
+	redraw_tile = 0x6
+	redraw_tiles_rect = 0x7
+	redraw = 0x8
+	wait = 0x9
+	play_sound = 0xa
+	stop_sound = 0xb
+	roll_random = 0xc
+	set_temp = 0xd
+	incr_temp = 0xe
+	set_variable = 0xf
+	hide_hero = 0x10
+	show_hero = 0x11
+	move_hero_to = 0x12
+	move_hero_by = 0x13
+	disable_action = 0x14
+	enable_hotspot = 0x15
+	disable_hotspot = 0x16
+	enable_monster = 0x17
+	disable_monster = 0x18
+	enable_all_monsters = 0x19
+	disable_all_monsters = 0x1a
+	drop_item = 0x1b
+	add_item = 0x1c
+	remove_item = 0x1d
+	mark_as_solved = 0x1e
+	win_game = 0x1f
+	lose_game = 0x20
+	change_zone = 0x21
+	set_global_var = 0x22
+	incr_global_var = 0x23
+	set_random = 0x24
+	add_health = 0x25
+}
+enum InstrINDY {
+	place_tile = 0x0
+	move_vehicle_progressive = 0x1
+	remove_tile = 0x2
+	move_tile = 0x3
+	draw_tile = 0x4
+	speak_hero = 0x5
+	speak_npc = 0x6
+	redraw_tile = 0x7
+	redraw_tiles_rect = 0x8
+	redraw = 0x9
+	wait = 0xa
+	play_sound = 0xb
+	stop_sound = 0xc
+	roll_random = 0xd
+	set_temp = 0xe
+	incr_temp = 0xf
+	set_variable = 0x10
+	hide_hero = 0x11
+	show_hero = 0x12
+	move_hero_to = 0x13 # release_camera?
+	move_hero_by = 0x14 # lock camera?
+	disable_action = 0x15
+	enable_hotspot = 0x16
+	disable_hotspot = 0x17
+	enable_monster = 0x18
+	disable_monster = 0x19
+	enable_all_monsters = 0x1a
+	disable_all_monsters = 0x1b
+	drop_item = 0x1c
+	add_item = 0x1d
+	remove_item = 0x1e
+	mark_as_solved = 0x1f
+	win_game = 0x20
+	lose_game = 0x21
+	change_zone = 0x22
+	set_global_var = 0x23
+	incr_global_var = 0x24
+	set_random = 0x25
+	add_health = 0x26
+}
+func perform_action_instruction(instruction, action):
+	if CURRENT_ZONE == 333:
+		pass
+		
+	var opcodes = InstrINDY if IS_INDY else InstrYODA
 	match instruction.opcode:
-		0x0: # place_tile
-			pass # doc: |
-			pass # Place tile `args[3]` at `args[0]`x`args[1]`x`args[2]`. To remove a
-			pass # tile `args[3]` can be set to `0xFFFF`.
-		0x1: # remove_tile
-			pass # doc: Remove tile at `args[0]`x`args[1]`x`args[2]`
-		0x2: # INDY: Remove tile at `args[0]`x`args[1]`x`args[2]`			YODA: Move tile from `args[0]`x`args[0]`x`args[2]` to `args[3]`x`args[4]`x`args[2]`
+		opcodes.place_tile: # Place tile `args[3]` at `args[0]`x`args[1]`x`args[2]`. To remove a tile `args[3]` can be set to `0xFFFF`.
+			set_tile_at(Vector2(instruction.args[0], instruction.args[1]), instruction.args[2], instruction.args[3])
+		opcodes.move_vehicle_progressive:
+#			var prev_tile = get_tile_at(Vector2(instruction.args[0], instruction.args[1]), instruction.args[2])
+#			set_tile_at(Vector2(instruction.args[0], instruction.args[1]), instruction.args[2], -1)
+#			set_tile_at(Vector2(instruction.args[3], instruction.args[4]), instruction.args[2], prev_tile)
+			pass
+		opcodes.remove_tile: # Remove tile at `args[0]`x`args[1]`x`args[2]`
 			set_tile_at(Vector2(instruction.args[0], instruction.args[1]), instruction.args[2], -1)
-		0x3: # draw_tile
+		opcodes.move_tile: # Move tile from `args[0]`x`args[0]`x`args[2]` to `args[3]`x`args[4]`x`args[2]`
+			var prev_tile = get_tile_at(Vector2(instruction.args[0], instruction.args[1]), instruction.args[2])
+			set_tile_at(Vector2(instruction.args[0], instruction.args[1]), instruction.args[2], -1)
+			set_tile_at(Vector2(instruction.args[3], instruction.args[4]), instruction.args[2], prev_tile)
+		opcodes.draw_tile:
 			pass
-		0x4: # speak_hero
-			pass # doc: |
-			pass # Show speech bubble next to hero. _Uses `text` attribute_.
-
-			pass # Script execution is paused until the speech bubble is dismissed.
-		0x5: # speak_npc -- Show speech bubble at `args[0]`x`args[1]`. _Uses `text` attribute_. The characters `¢` and `¥` are used as placeholders for provided and required items of the current zone, respectively.
+		opcodes.speak_hero: # Show speech bubble next to hero. Uses `text` attribute.
+							# The characters `¢` and `¥` are used as placeholders for provided and required items of the current zone, respectively.
+			speech_bubble(HERO_ACTOR.tile_current, instruction.text)
+		opcodes.speak_npc: # Show speech bubble at `args[0]`x`args[1]`. Uses `text` attribute.
+			speech_bubble(to_tile_absolute(Vector2(instruction.args[0], instruction.args[1])), instruction.text)
+		opcodes.redraw_tile: # Redraw tile at `args[0]`x`args[1]`
 			pass
+		opcodes.redraw_tiles_rect: # Redraw the part of the current scene, specified by a rectangle positioned at `args[0]`x`args[1]` with width `args[2]` and height `args[3]`
 			pass
-			pass
-			pass
-
-			pass # Script execution is paused until the speech bubble is dismissed.
-		0x6: # set_tile_needs_display
-			pass # doc: Redraw tile at `args[0]`x`args[1]`
-		0x7: # set_rect_needs_display
-			pass # doc: |
-			pass # Redraw the part of the current scene, specified by a rectangle
-			pass # positioned at `args[0]`x`args[1]` with width `args[2]` and height
-			pass # `args[3]`.
-		0x8: # wait
-			pass # doc: Pause script execution for one tick.
-		0x9: # redraw
-			pass # doc: Redraw the whole scene immediately
-		0xa: # play_sound
-			pass # doc: Play sound specified by `args[0]`
-		0xb: # INDY: Play sound specified by `args[0]` 				YODA: stop_sound
+		opcodes.redraw: # Redraw the whole scene immediately
+			return
+		opcodes.wait: # Pause script execution for `args[0]` ticks
+			pause_game(instruction.args[0]) 
+		opcodes.play_sound: # Play sound specified by `args[0]`
 			play_sound(instruction.args[0])
-		0xc: # INDY: ?? (4 args)									YODA: roll_dice between 1 and `args[0]`
-			pass # 0, 0, 0, 0
-			pass
-			pass
-		0xd: # set_counter
-			pass # doc: Set current zone's `counter` value to a `args[0]`
-		0xe: # add_to_counter
-			pass # doc: Add `args[0]` to current zone's `counter` value
-		0xf: # set_variable
-			pass # doc: |
-			pass # Set variable identified by `args[0]`⊕`args[1]`⊕`args[2]` to
-			pass # `args[3]`.  Internally this is implemented as opcode 0x00, setting
-			pass # tile at `args[0]`x`args[1]`x`args[2]` to `args[3]`.
-		0x10: # hide_hero
-			pass # doc: Hide hero
-		0x11: # INDY: ?? tile (4 args) 					YODA: show_hero
+		opcodes.stop_sound: # / map transition cutscene (intro)?
+			return # 0, 0, 0, 0
+		opcodes.roll_random: # Roll between 1 and `args[0]` and set into map `random` value
+			randomize()
+			DATA.zones[CURRENT_ZONE].random = (randi() % instruction.args[0]) + 1
+			print("set rand to ",DATA.zones[CURRENT_ZONE].random)
+		opcodes.set_temp: # Set current zone's `temp` value to a `args[0]`
+			DATA.zones[CURRENT_ZONE].temp = instruction.args[0]
+		opcodes.incr_temp: # Add `args[0]` to current zone's `temp` value
+			DATA.zones[CURRENT_ZONE].temp += instruction.args[0]
+		opcodes.set_variable: # Set variable identified by `args[0]`⊕`args[1]`⊕`args[2]` to `args[3]`. Exact same as 0x0, `place_tile`
+			set_tile_at(Vector2(instruction.args[0], instruction.args[1]), instruction.args[2], instruction.args[3])
+		opcodes.hide_hero: # (release_camera?)
 			pass # 7, 14, 0, 57, 0
-		0x12: # move_hero_to
-			pass # pass # doc: |
-			pass # Set hero's position to `args[0]`x`args[1]` ignoring impassable
-			pass # tiles.  Execute hotspot actions, redraw the current scene and move
-			pass # camera if the hero is not hidden.
-		0x13: # move_hero_by
-			pass # doc: |
-			pass # Moves hero relative to the current location by `args[0]` in x and
-			pass # `args[1]` in y direction.
-		0x14: # disable_action
-			pass # doc: |
-			pass # Disable current action, note that there's no way to activate the
-			pass # action again.
-		0x15: # INDY: ?? (3 args)						YODA: Enable hotspot `args[0]` so it can be triggered.
-			pass # 0, 0, 0
-		0x16: # disable_hotspot
-			pass # doc: Disable hotspot `args[0]` so it can't be triggered anymore.
-		0x17: # enable_monster
-			pass # doc: Enable monster `args[0]`
-		0x18: # disable_monster
-			pass # doc: Disable monster `args[0]`
-		0x19: # enable_all_monsters
-			pass # doc: Enable all monsters
-		0x1a: # disable_all_monsters
-			pass # doc: Disable all monsters
-		0x1b: # drop_item
-			pass # doc: |
-			pass # Drops item `args[0]` for pickup at `args[1]`x`args[2]`. If the
-			pass # item is 0xFFFF, it drops the current sector's find item instead.
-
-			pass # Script execution is paused until the item is picked up.
-		0x1c: # add_item
-			pass # doc: Add tile with id `args[0]` to inventory
-		0x1d: # remove_item
-			pass # doc: Remove one instance of item `args[0]` from the inventory
-		0x1e: # mark_as_solved
-			pass # doc: |
-			pass # Marks current sector solved for the overview map.
-		0x1f: # win_game
-			pass # doc: Ends the current story by winning.
-		0x20: # lose_game
-			pass # doc: Ends the current story by losing.
-		0x21: # change_zone
-			pass # doc: |
-			pass # Change current zone to `args[0]`. Hero will be placed at
-			pass # `args[1]`x`args[2]` in the new zone.
-		0x22: # set_shared_counter
-			pass # doc: Set current zone's `shared_counter` value to a `args[0]`
-		0x23: # add_to_shared_counter
-			pass # doc: Add `args[0]` to current zone's `shared_counter` value
-		0x24: # set_random
-			pass # doc: Set current zone's `random` value to a `args[0]`
-		0x25: # add_health
-			pass # doc: |
-			pass # Increase hero's health by `args[0]`. New health is capped at
-			pass # hero's max health (0x300). Argument 0 can also be negative
-			pass # subtract from hero's health.
+		opcodes.show_hero: # (lock_camera?)
+			pass
+		opcodes.move_hero_to: # Set hero's position to `args[0]`x`args[1]` ignoring impassable tiles.
+							  # Execute hotspot actions, redraw the current scene and move camera if the hero is not hidden
+			pass
+		opcodes.move_hero_by: # Moves hero relative to the current location by `args[0]` in x and `args[1]` in y direction
+			pass
+		opcodes.disable_action: # Disable current action, note that there's no way to activate the action again
+			action["enabled"] = false # 0, 0, 0
+		opcodes.enable_hotspot: # (show_object?): # Enable hotspot `args[0]` so it can be triggered
+			pass
+		opcodes.disable_hotspot: # (hide_object?): # Disable hotspot `args[0]` so it can't be triggered anymore
+			pass
+		opcodes.enable_monster: # Enable monster `args[0]`
+			pass
+		opcodes.disable_monster: # Disable monster `args[0]`
+			pass
+		opcodes.enable_all_monsters:
+			pass
+		opcodes.disable_all_monsters:
+			pass
+		opcodes.drop_item: # Drops item `args[0]` for pickup at `args[1]`x`args[2]`. If the item is 0xFFFF, it drops the current sector's find item instead
+			pass
+			pause_game()
+		opcodes.add_item: # Add tile with id `args[0]` to inventory
+			pass
+		opcodes.remove_item: # Remove one instance of item `args[0]` from the inventory
+			pass
+		opcodes.mark_as_solved: # Marks current sector solved for the overview map /// 'Open'? 'Show'? Sets a bunch of values to 1. Used in map 52 on opening a box
+			pass
+		opcodes.win_game: # Ends the current story by winning
+			pass
+		opcodes.lose_game: # Ends the current story by losing
+			pass
+		opcodes.change_zone: # Change current zone to `args[0]`. Hero will be placed at `args[1]`x`args[2]` in the new zone
+			pass
+		opcodes.set_global_var: # Set current zone's `global_var` value to a `args[0]`
+			GLOBAL_VAR = instruction.args[0]
+		opcodes.incr_global_var: # Add `args[0]` to current zone's `global_var` value
+			GLOBAL_VAR += instruction.args[0]
+		opcodes.set_random: # Set current zone's `random` value to a `args[0]`
+			DATA.zones[CURRENT_ZONE].random = instruction.args[0]
+		opcodes.add_health: # Increase hero's health by `args[0]`. New health is capped at hero's max health (0x300). Argument 0 can also be negative to subtract from hero's health
+			HERO_ACTOR.health += instruction.args[0]
+func pause_game(ticks = null):
+	pass
 			
 # Objects, actors
 var HERO_ACTOR = null
@@ -1066,16 +1268,34 @@ func spawn_object(tile_id, x, y, zone_id):
 	obj.tile_id = tile_id
 	obj.linked_zone_id = zone_id
 	WALL_TILES.add_child(obj)
+	return obj
 func spawn_monster(char_id, x, y): # TODO
 	pass
 
-
+# Game fancy stuff
+var SPEECH_PLAYING = null
+onready var SPEECH_SCN = load("res://scenes/SpeechBubble.tscn")
+func speech_bubble(tile, text):
+	pause_game()
+	SPEECH_PLAYING = SPEECH_SCN.instance()
+	SPEECH_PLAYING.rect_position = to_vector(tile) + Vector2(2,-20)
+	SPEECH_PLAYING.set_text(text)
+#	SPEECH_PLAYING.IS_FLIPPED = false
+	WORLD_ROOT.add_child(SPEECH_PLAYING)
 func play_sound(sound_id):
 	Sounds.play_sound(Game.DATA.sounds[sound_id],null,1.0,"Master")
 
+var IS_WON_GAME = false
 func new_game():
+	IS_WON_GAME = false
 	FADE.modulate.a = 1.0
 	load_zone(120, Vector2())
 	HERO_ACTOR.position = to_vector(Vector2(11, 5))
 	yield(fadein(),"completed")
 	do_actions()
+
+var INVENTORY = []
+func add_item():
+	pass
+func remove_item():
+	pass

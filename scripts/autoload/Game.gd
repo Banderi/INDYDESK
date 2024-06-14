@@ -11,9 +11,11 @@ func fadein():
 func fadeout():
 	FADE.fade_target = 1
 	yield(FADE,"fade_done")
+func is_fading():
+	return FADE.fade_target != 0
 
 func can_control_hero():
-	if FADE.fade_target != 0:
+	if is_fading():
 		return false
 	if SPEECH_PLAYING != null:
 		return false
@@ -589,20 +591,21 @@ func load_daw(file_path):
 			"ENDF":
 				assert(s_size == 0)
 	Log.generic(null,"DAW file loaded sucessfully!")
-#	for z in DATA.zones.size():
-##	for z in [333]:
-#		var zone = DATA.zones[z]
-#		for action in zone.actions:
+	for z in DATA.zones.size():
+#	for z in [333]:
+		var zone = DATA.zones[z]
+		for action in zone.actions:
 #			for condition in action.conditions:
-#				if condition.opcode == 0xd:
+##				if condition.opcode == 0xd:
+#				if action.name == "Hint1":
 ##					var strf = (condition.args as PoolByteArray).get_string_from_ascii()
 ##					print("%16s %16s %20s (%s)"%[action.name,condition.text,condition.args,strf])
-#					print("%16s %d %16s : 0x%02X (%s)"%[zone.name,z,action.name,condition.opcode,condition.args])
-##			for instruction in action.instructions:
-##				if action.conditions[0].opcode == 0x14:
-###				if action.name == "OnObsidianKe":
-###				if instruction.opcode == 0x1:
-##					print("%16s %d %16s : 0x%02X (%s)"%[zone.name,z,action.name,instruction.opcode,instruction.args])
+#					print("%16s %d %16s O: 0x%02X (%s)"%[zone.name,z,action.name,condition.opcode,condition.args])
+			for instruction in action.instructions:
+#				if action.conditions[0].opcode == 0xe:
+#				if action.name == "Hint1":
+				if instruction.opcode == 0x1c:
+					print("%16s %d %16s I: 0x%02X (%s)"%[zone.name,z,action.name,instruction.opcode,instruction.args])
 
 # Textures
 onready var IMAGE_BUFFER = Image.new()
@@ -788,11 +791,11 @@ func load_zone(zone_id, map_origin):
 				if wall_flags & TileFlags.is_locator:
 					obj.add_to_group("locator")
 				if wall_flags & TileFlags.is_item:
-					obj.add_to_group("item")
+					obj.add_to_group("items")
 				if wall_flags & TileFlags.is_weapon:
-					obj.add_to_group("weapon")
+					obj.add_to_group("weapons")
 				if wall_flags & TileFlags.is_character:
-					obj.add_to_group("character")
+					obj.add_to_group("characters")
 			else:
 				WALL_TILES.set_cellv(world_tile_coords, tile_layers[1])
 			
@@ -846,7 +849,6 @@ func room_enter(zone_id):
 		unload_all_zones()
 		load_zone(zone_id, map_origin)
 		yield(fadein(),"completed")
-		do_actions()
 func room_exit():
 	var prev_zone_id = ROOMS_STACK[0] # the outer zone MUST BE IN THE STACK.
 	var map_origin = null
@@ -866,7 +868,31 @@ func room_exit():
 		ROOMS_STACK.pop_front()
 		load_zone(prev_zone_id, map_origin)
 		yield(fadein(),"completed")
-		do_actions()
+
+
+# SCRIPTS - ACTIONS - HOTSPOTS - TRIGGERS
+func force_script_update():
+	return _process(0.0)
+func _process(delta):
+	if SPEECH_PLAYING != null:
+		return false
+	if is_fading():
+		return false
+	
+	# actions
+	var action_was_executed = false
+	for action in DATA.zones[CURRENT_ZONE].actions:
+		if do_action_script(action):
+			action_was_executed = true
+	JUST_ENTERED_ZONE = false
+
+	# hotspots
+	var hotspot_was_triggered = false
+	if HERO_ACTOR.state == HERO_ACTOR.States.walk_grid_centered:
+		hotspot_was_triggered = do_hotspots(HERO_ACTOR.tile_current)
+	
+	# return results
+	return action_was_executed || hotspot_was_triggered
 
 var TRIGGERS_LOOKUP = {}
 func do_hotspots(tile): # hotspots (tile-based triggers)
@@ -885,22 +911,13 @@ func do_hotspots(tile): # hotspots (tile-based triggers)
 					room_exit()
 				_:
 					pass
+			return true
+	return false
 
 var GAME_EXP = 0
-func do_actions(): # actions (scripts)
-	# this is SUPER INEFFICIENT... would need to do a complete system rewrite to optimize, eh.
-	var action_was_executed = false
-	for action in DATA.zones[CURRENT_ZONE].actions:
-		if do_action_script(action):
-			action_was_executed = true
-	JUST_ENTERED_ZONE = false
-	return action_was_executed
 func do_action_script(action):
 	if !action.enabled:
 		return
-#	print(action.name)
-#	if action.name == "SetUpPotion":
-#		pass
 	for condition in action.conditions:
 		if !evaluate_action_condition(condition, action):
 			return false
@@ -919,7 +936,7 @@ enum CondYODA {
 	random_is_greater_than = 0x7
 	random_is_less_than = 0x8
 	enter_by_vehicle = 0x9
-	tile_at_is = 0xa
+	tile_is = 0xa
 	monster_is_dead = 0xb
 	all_monsters_are_dead = 0xc
 	has_item = 0xd
@@ -930,7 +947,7 @@ enum CondYODA {
 	item_placed = 0x12
 	health_is_less_than = 0x13
 	health_is_greater_than = 0x14
-#	UNUSED15 = 0x15
+	UNUSED15 = 0x15
 	find_item_is = 0x16
 	used_item_is_not = 0x17
 	hero_is_at = 0x18
@@ -946,22 +963,22 @@ enum CondYODA {
 	tile_var_is = 0x22
 	exp_greater_than = 0x23
 	#
-	game_not_completed
-	game_is_completed
+	game_not_completed = 0x1024
+	game_is_completed = 0x1025
 }
 enum CondINDY {
-#	UNUSED0 = 0x0
+	UNUSED0 = 0x0
 	standing_on = 0x1
 	bumped_into = 0x2
 	used_item_on = 0x3
 	zone_not_initialised = 0x4
 	zone_entered = 0x5
 	temp_is = 0x6
-#	UNUSED7 = 0x7
-#	UNUSED8 = 0x8
+	UNUSED7 = 0x7
+	UNUSED8 = 0x8
 	game_not_completed = 0x9 # ??
 	has_item = 0xa
-#	UNUSEDB = 0xb
+	UNUSEDB = 0xb
 	random_is_greater_than = 0xc
 	random_is = 0xd
 	random_is_less_than = 0xe
@@ -969,29 +986,29 @@ enum CondINDY {
 	enter_by_vehicle = 0x10
 	monster_is_dead = 0x11
 	all_monsters_are_dead = 0x12
-	tile_at_is = 0x13
+	tile_is = 0x13
 	item_placed = 0x14 # maybe?
 	required_item_is = 0x15 # maybe?
 	health_is_less_than = 0x16
 	##
-	health_is_greater_than
-	starting_item_is
-	no_item_placed
-	find_item_is
-	used_item_is_not
-	hero_is_at
-	global_var_is
-	global_var_is_less_than
-	global_var_is_greater_than
-	exp_is
-	drops_quest_item_at
-	has_any_required_item
-	temp_is_not
-	random_is_not
-	global_var_is_not
-	tile_var_is
-	exp_greater_than
-	game_is_completed
+	health_is_greater_than = 0x1017
+	starting_item_is = 0x1018
+	no_item_placed = 0x1019
+	find_item_is = 0x101a
+	used_item_is_not = 0x101b
+	hero_is_at = 0x101c
+	global_var_is = 0x101d
+	global_var_is_less_than = 0x101e
+	global_var_is_greater_than = 0x101f
+	exp_is = 0x1020
+	drops_quest_item_at = 0x1021
+	has_any_required_item = 0x1022
+	temp_is_not = 0x1023
+	random_is_not = 0x1024
+	global_var_is_not = 0x1025
+	tile_var_is = 0x1026
+	exp_greater_than = 0x1027
+	game_is_completed = 0x1028
 }
 func evaluate_action_condition(condition, action):
 	if CURRENT_ZONE == 333:
@@ -1022,7 +1039,7 @@ func evaluate_action_condition(condition, action):
 			return DATA.zones[CURRENT_ZONE].random < condition.args[0]
 		opcodes.enter_by_vehicle:
 			return JUST_ENTERED_ZONE_BY_VEHICLE
-		opcodes.tile_at_is, opcodes.tile_var_is: # Check if tile at `args[0]`x`args[1]`x`args[2]` is equal to `args[3]`
+		opcodes.tile_is, opcodes.tile_var_is: # Check if tile at `args[0]`x`args[1]`x`args[2]` is equal to `args[3]`
 			return get_tile_at(Vector2(condition.args[1], condition.args[2]), condition.args[3]) == signed_u16(condition.args[0])
 		opcodes.monster_is_dead: # True if monster `args[0]` is dead
 			pass
@@ -1079,9 +1096,11 @@ func evaluate_action_condition(condition, action):
 			return GLOBAL_VAR != condition.args[0]
 		opcodes.exp_greater_than: # (games_won_is_greater_than): # True, if total game experience is greater than `args[0]`
 			return GAME_EXP > condition.args[0]
+		_:
+			pass
 	return false
 enum InstrYODA {
-	place_tile = 0x0
+	set_tile = 0x0
 	remove_tile = 0x1
 	move_tile = 0x2
 	draw_tile = 0x3
@@ -1096,7 +1115,7 @@ enum InstrYODA {
 	roll_random = 0xc
 	set_temp = 0xd
 	incr_temp = 0xe
-	set_variable = 0xf
+	set_tile_var = 0xf
 	hide_hero = 0x10
 	show_hero = 0x11
 	move_hero_to = 0x12
@@ -1121,23 +1140,23 @@ enum InstrYODA {
 	add_health = 0x25
 }
 enum InstrINDY {
-	place_tile = 0x0
+	set_tile = 0x0
 	move_vehicle_progressive = 0x1
 	remove_tile = 0x2
 	move_tile = 0x3
 	draw_tile = 0x4
 	speak_hero = 0x5
-	speak_npc = 0x6
+	__UNKN_0x6 = 0x6
 	redraw_tile = 0x7
 	redraw_tiles_rect = 0x8
 	redraw = 0x9
-	wait = 0xa
+	set_temp = 0xa
 	play_sound = 0xb
 	stop_sound = 0xc
 	roll_random = 0xd
-	set_temp = 0xe
+	__UNKN_0xE = 0xe
 	incr_temp = 0xf
-	set_variable = 0x10
+	set_tile_var = 0x10
 	hide_hero = 0x11
 	show_hero = 0x12
 	move_hero_to = 0x13 # release_camera?
@@ -1149,7 +1168,7 @@ enum InstrINDY {
 	disable_monster = 0x19
 	enable_all_monsters = 0x1a
 	disable_all_monsters = 0x1b
-	drop_item = 0x1c
+	speak_npc = 0x1c
 	add_item = 0x1d
 	remove_item = 0x1e
 	mark_as_solved = 0x1f
@@ -1160,6 +1179,9 @@ enum InstrINDY {
 	incr_global_var = 0x24
 	set_random = 0x25
 	add_health = 0x26
+	##
+	wait = 0x1027
+	drop_item = 0x1028
 }
 func perform_action_instruction(instruction, action):
 	if CURRENT_ZONE == 333:
@@ -1167,7 +1189,7 @@ func perform_action_instruction(instruction, action):
 		
 	var opcodes = InstrINDY if IS_INDY else InstrYODA
 	match instruction.opcode:
-		opcodes.place_tile: # Place tile `args[3]` at `args[0]`x`args[1]`x`args[2]`. To remove a tile `args[3]` can be set to `0xFFFF`.
+		opcodes.set_tile, opcodes.set_tile_var: # Place tile `args[3]` at `args[0]`x`args[1]`x`args[2]`. To remove a tile `args[3]` can be set to `0xFFFF`.
 			set_tile_at(Vector2(instruction.args[0], instruction.args[1]), instruction.args[2], instruction.args[3])
 		opcodes.move_vehicle_progressive:
 #			var prev_tile = get_tile_at(Vector2(instruction.args[0], instruction.args[1]), instruction.args[2])
@@ -1207,8 +1229,6 @@ func perform_action_instruction(instruction, action):
 			DATA.zones[CURRENT_ZONE].temp = instruction.args[0]
 		opcodes.incr_temp: # Add `args[0]` to current zone's `temp` value
 			DATA.zones[CURRENT_ZONE].temp += instruction.args[0]
-		opcodes.set_variable: # Set variable identified by `args[0]`⊕`args[1]`⊕`args[2]` to `args[3]`. Exact same as 0x0, `place_tile`
-			set_tile_at(Vector2(instruction.args[0], instruction.args[1]), instruction.args[2], instruction.args[3])
 		opcodes.hide_hero: # (release_camera?)
 			pass # 7, 14, 0, 57, 0
 		opcodes.show_hero: # (lock_camera?)
@@ -1279,9 +1299,9 @@ func speech_bubble(tile, text):
 	pause_game()
 	SPEECH_PLAYING = SPEECH_SCN.instance()
 	SPEECH_PLAYING.rect_position = to_vector(tile) + Vector2(2,-20)
-	SPEECH_PLAYING.set_text(text)
 #	SPEECH_PLAYING.IS_FLIPPED = false
 	WORLD_ROOT.add_child(SPEECH_PLAYING)
+	SPEECH_PLAYING.set_text(text)
 func play_sound(sound_id):
 	Sounds.play_sound(Game.DATA.sounds[sound_id],null,1.0,"Master")
 
@@ -1292,7 +1312,6 @@ func new_game():
 	load_zone(120, Vector2())
 	HERO_ACTOR.position = to_vector(Vector2(11, 5))
 	yield(fadein(),"completed")
-	do_actions()
 
 var INVENTORY = []
 func add_item():

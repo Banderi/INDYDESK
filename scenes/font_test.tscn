@@ -1,0 +1,54 @@
+[gd_scene load_steps=5 format=2]
+
+[ext_resource path="res://fonts/PixeloidMono-d94EV.tres" type="DynamicFont" id=1]
+[ext_resource path="res://fonts/PixeloidSansBold-PKnYd.tres" type="DynamicFont" id=2]
+[ext_resource path="res://fonts/PixeloidSans-mLxMm.tres" type="DynamicFont" id=3]
+[ext_resource path="res://fonts/DeterminationMonoWebRegular-Z5oq.tres" type="DynamicFont" id=4]
+
+[node name="Control" type="ColorRect"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="RichTextLabel" type="RichTextLabel" parent="."]
+margin_left = 71.0
+margin_top = 57.0
+margin_right = 246.0
+margin_bottom = 219.0
+custom_colors/default_color = Color( 0, 0, 0, 1 )
+custom_fonts/normal_font = ExtResource( 1 )
+text = "Welcome to LUCASIO, Señor Jones! My name's Bonifacio.
+
+If you're having trouble playing the game, talk to me again, and I'll give you some hints..."
+
+[node name="RichTextLabel2" type="RichTextLabel" parent="."]
+margin_left = 247.0
+margin_top = 57.0
+margin_right = 422.0
+margin_bottom = 219.0
+custom_colors/default_color = Color( 0, 0, 0, 1 )
+custom_fonts/normal_font = ExtResource( 3 )
+text = "Welcome to LUCASIO, Señor Jones! My name's Bonifacio.
+
+If you're having trouble playing the game, talk to me again, and I'll give you some hints..."
+
+[node name="RichTextLabel3" type="RichTextLabel" parent="."]
+margin_left = 434.0
+margin_top = 57.0
+margin_right = 609.0
+margin_bottom = 219.0
+custom_colors/default_color = Color( 0, 0, 0, 1 )
+custom_fonts/normal_font = ExtResource( 2 )
+text = "Welcome to LUCASIO, Señor Jones! My name's Bonifacio.
+
+If you're having trouble playing the game, talk to me again, and I'll give you some hints..."
+
+[node name="RichTextLabel4" type="RichTextLabel" parent="."]
+margin_left = 601.0
+margin_top = 57.0
+margin_right = 776.0
+margin_bottom = 219.0
+custom_colors/default_color = Color( 0, 0, 0, 1 )
+custom_fonts/normal_font = ExtResource( 4 )
+text = "Welcome to LUCASIO, Señor Jones! My name's Bonifacio.
+
+If you're having trouble playing the game, talk to me again, and I'll give you some hints..."

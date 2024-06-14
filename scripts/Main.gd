@@ -72,6 +72,7 @@ func _process(_delta):
 	$UI/Label2.text = "current_zone: <%s> %s\n" % [Game.CURRENT_ZONE, Game.DATA.zones[Game.CURRENT_ZONE].name]
 	$UI/Label2.text += "rooms_stack: %s\n" % [Game.ROOMS_STACK]
 	$UI/Label2.text += "state: %s\n" % [Log.get_enum_string(HERO.States, HERO.state)]
+	$UI/Label2.text += "last_attempted_input: %s\n" % [HERO.last_attempted_input]
 	$UI/Label2.text += "tile_current: %s rel. %s\n" % [HERO.tile_current, Game.to_zone_relative(HERO.tile_current)]
 	$UI/Label2.text += "tile_target: %s rel. %s\n" % [HERO.tile_target, Game.to_zone_relative(HERO.tile_target)]
 	$UI/Label2.text += "linked_object: %s\n" % [HERO.linked_object]

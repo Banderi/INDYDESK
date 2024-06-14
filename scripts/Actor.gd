@@ -41,7 +41,7 @@ var last_bumped_tile = null # spam prevention
 func bump_into(bumped_tile):
 	if last_bumped_tile != bumped_tile:
 		last_bumped_tile = bumped_tile
-		return Game.do_actions()
+		return Game.force_script_update()
 	return false
 
 var linked_object = null
@@ -113,7 +113,10 @@ func do_movement(delta):
 			# get movement INPUT VECTOR only when centered on the tile
 			var moved_input = Vector2()
 			var attempted_input = Vector2()
-			if tile_fractional == tile_current && Game.can_control_hero():
+			if !Game.can_control_hero():
+				last_bumped_tile = null
+				last_attempted_input = Vector2()
+			elif tile_fractional == tile_current:
 				link_object(null)
 				if Input.is_action_pressed("up"):
 					attempted_input += Vector2(0,-1)
@@ -166,17 +169,10 @@ func do_movement(delta):
 			if tile_target == Game.to_tile(position, false):
 				if target_displacement == Vector2():
 					state = States.idle
-					Game.do_actions()
 				else:
 					state = States.walk_grid_centered
 			else:
 				state = States.walk_grid
-	
-			# do triggers (hotspots / actions) when landed on a tile center
-			if state == States.walk_grid_centered:	
-				Game.do_hotspots(tile_current)
-#				if last_bumped_tile == null: # only perform actions IF it wasn't already done previously during the "bumping" check!
-#					Game.do_actions()
 
 # Called every frame. 'delta' is the elapsed time since the previous frame.
 func _process(delta):

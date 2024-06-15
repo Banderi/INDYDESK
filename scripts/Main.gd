@@ -69,9 +69,14 @@ func _ready():
 
 # Called every frame. 'delta' is the elapsed time since the previous frame.
 func _process(_delta):
-	$UI/Label2.text = "current_zone: <%s> %s\n" % [Game.CURRENT_ZONE, Game.DATA.zones[Game.CURRENT_ZONE].name]
+	$UI/Label2.text = "fade: %s\n" % [Game.FADE.modulate.a]
+	$UI/Label2.text += "current_zone: <%s> %s\n" % [Game.CURRENT_ZONE, Game.DATA.zones[Game.CURRENT_ZONE].name]
 	$UI/Label2.text += "rooms_stack: %s\n" % [Game.ROOMS_STACK]
-	$UI/Label2.text += "state: %s\n" % [Log.get_enum_string(HERO.States, HERO.state)]
+	$UI/Label2.text += "zone_variable: %s\n" % [Game.DATA.zones[Game.CURRENT_ZONE].variable]
+	$UI/Label2.text += "zone_random: %s\n" % [Game.DATA.zones[Game.CURRENT_ZONE].random]
+	$UI/Label2.text += "GLOBAL_VAR: %s\n" % [Game.GLOBAL_VAR]
+	
+	$UI/Label2.text += "\nstate: %s\n" % [Log.get_enum_string(HERO.States, HERO.state)]
 	$UI/Label2.text += "last_attempted_input: %s\n" % [HERO.last_attempted_input]
 	$UI/Label2.text += "tile_current: %s rel. %s\n" % [HERO.tile_current, Game.to_zone_relative(HERO.tile_current)]
 	$UI/Label2.text += "tile_target: %s rel. %s\n" % [HERO.tile_target, Game.to_zone_relative(HERO.tile_target)]

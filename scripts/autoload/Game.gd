@@ -24,6 +24,39 @@ func can_control_hero():
 func debug_tools_enabled():
 	return false
 
+const ANSI_ISO_8859_7 = [
+	"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+	"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+	" ", "‘", "’", "£", "€", "₯", "¦", "§", "¨", "©", "ͺ", "«", "¬", "", "", "―",
+	"°", "±", "²", "³", "΄", "΅", "Ά", "·", "Έ", "Ή", "Ί", "»", "Ό", "½", "Ύ", "Ώ",
+	"ΐ", "Α", "Β", "Γ", "Δ", "Ε", "Ζ", "Η", "Θ", "Ι", "Κ", "Λ", "Μ", "Ν", "Ξ", "Ο",
+	"Π", "Ρ", "", "Σ", "Τ", "Υ", "Φ", "Χ", "Ψ", "Ω", "Ϊ", "Ϋ", "ά", "έ", "ή", "ί",
+	"ΰ", "α", "β", "γ", "δ", "ε", "ζ", "η", "θ", "ι", "κ", "λ", "μ", "ν", "ξ", "ο",
+	"π", "ρ", "ς", "σ", "τ", "υ", "φ", "χ", "ψ", "ω", "ϊ", "ϋ", "ό", "ύ", "ώ", ""
+]
+const ANSI_WINDOWS_1252 = [
+	"€", "", "‚", "ƒ", "„", "…", "†", "‡", "ˆ", "‰", "Š", "‹", "Œ", "", "Ž", "",
+	"", "‘", "’", "“", "”", "•", "–", "—", "˜", "™", "š", "›", "œ", "", "ž", "Ÿ",
+	" ", "¡", "¢", "£", "¤", "¥", "¦", "§", "¨", "©", "ª", "«", "¬", "", "®", "¯",
+	"°", "±", "²", "³", "´", "µ", "¶", "·", "¸", "¹", "º", "»", "¼", "½", "¾", "¿",
+	"À", "Á", "Â", "Ã", "Ä", "Å", "Æ", "Ç", "È", "É", "Ê", "Ë", "Ì", "Í", "Î", "Ï",
+	"Ð", "Ñ", "Ò", "Ó", "Ô", "Õ", "Ö", "×", "Ø", "Ù", "Ú", "Û", "Ü", "Ý", "Þ", "ß",
+	"à", "á", "â", "ã", "ä", "å", "æ", "ç", "è", "é", "ê", "ë", "ì", "í", "î", "ï",
+	"ð", "ñ", "ò", "ó", "ô", "õ", "ö", "÷", "ø", "ù", "ú", "û", "ü", "ý", "þ", "ÿ"
+]
+func ansi_to_string(bytes : PoolByteArray):
+	if bytes.size() == 0:
+		return ""
+	var text = bytes.get_string_from_ascii() # base string
+	for b in bytes.size():
+		var byte = bytes[b]
+		if byte < 0x20: # ASCII control codes
+			continue
+		elif byte < 0x80: # normal printable characters (same as ASCII and UTF-8)  
+			continue
+		else: # extended ANSI characters
+			text[b] = ANSI_WINDOWS_1252[byte - 0x80]
+	return text
 func round_vector(vector):
 	vector.x = round(vector.x)
 	vector.y = round(vector.y)
@@ -381,7 +414,7 @@ func load_daw(file_path):
 						"puzzle": -1,
 						"actions": [],
 						
-						"temp": 0,
+						"variable": 0,
 						"random": 0,
 					})
 					if DAW.get_position() > end_of_section:
@@ -457,7 +490,7 @@ func load_daw(file_path):
 								"met": false
 							}
 							var text_length = DAW.get_16()
-							condition["text"] = DAW.get_buffer(text_length).get_string_from_ascii()
+							condition["text"] = ansi_to_string(DAW.get_buffer(text_length))
 							action_data.conditions.push_back(condition)
 						for _i in DAW.get_16(): # instructions
 							var instruction = {
@@ -471,7 +504,7 @@ func load_daw(file_path):
 								],
 							}
 							var text_length = DAW.get_16()
-							instruction["text"] = DAW.get_buffer(text_length).get_string_from_ascii()
+							instruction["text"] = ansi_to_string(DAW.get_buffer(text_length))
 							action_data.instructions.push_back(instruction)
 						DATA.zones[zone_id].actions.push_back(action_data)
 			"PUZ2": # puzzles
@@ -931,7 +964,7 @@ enum CondYODA {
 	bumped_into = 0x2
 	used_item_on = 0x3
 	standing_on = 0x4
-	temp_is = 0x5
+	variable_is = 0x5
 	random_is = 0x6
 	random_is_greater_than = 0x7
 	random_is_less_than = 0x8
@@ -957,7 +990,7 @@ enum CondYODA {
 	exp_is = 0x1c
 	drops_quest_item_at = 0x1d
 	has_any_required_item = 0x1e
-	temp_is_not = 0x1f
+	variable_is_not = 0x1f
 	random_is_not = 0x20
 	global_var_is_not = 0x21
 	tile_var_is = 0x22
@@ -973,7 +1006,7 @@ enum CondINDY {
 	used_item_on = 0x3
 	zone_not_initialised = 0x4
 	zone_entered = 0x5
-	temp_is = 0x6
+	variable_is = 0x6
 	UNUSED7 = 0x7
 	UNUSED8 = 0x8
 	game_not_completed = 0x9 # ??
@@ -1003,7 +1036,7 @@ enum CondINDY {
 	exp_is = 0x1020
 	drops_quest_item_at = 0x1021
 	has_any_required_item = 0x1022
-	temp_is_not = 0x1023
+	variable_is_not = 0x1023
 	random_is_not = 0x1024
 	global_var_is_not = 0x1025
 	tile_var_is = 0x1026
@@ -1029,8 +1062,8 @@ func evaluate_action_condition(condition, action):
 			pass
 		opcodes.standing_on: # Check if hero is at `args[0]`x`args[1]` and the floor tile is `args[2]`
 			return HERO_ACTOR.tile_current == to_tile_absolute(Vector2(condition.args[0], condition.args[1])) && get_tile_at(HERO_ACTOR.tile_current, 0, false) == condition.args[2]
-		opcodes.temp_is: # Current zone's `temp` value is equal to `args[0]`
-			return DATA.zones[CURRENT_ZONE].temp == condition.args[0]
+		opcodes.variable_is: # Current zone's `variable` value is equal to `args[0]`
+			return DATA.zones[CURRENT_ZONE].variable == condition.args[0]
 		opcodes.random_is: # Current zone's `random` value is equal to `args[0]`
 			return DATA.zones[CURRENT_ZONE].random == condition.args[0]
 		opcodes.random_is_greater_than: # Current zone's `random` value is greater than `args[0]`
@@ -1088,8 +1121,8 @@ func evaluate_action_condition(condition, action):
 			pass
 		opcodes.has_any_required_item: # Determines if inventory contains any of the required items needed for current zone
 			pass
-		opcodes.temp_is_not: # Current zone's `temp` value is not equal to `args[0]`
-			return DATA.zones[CURRENT_ZONE].temp != condition.args[0]
+		opcodes.variable_is_not: # Current zone's `variable` value is not equal to `args[0]`
+			return DATA.zones[CURRENT_ZONE].variable != condition.args[0]
 		opcodes.random_is_not: # Current zone's `random` value is not equal to `args[0]`
 			return DATA.zones[CURRENT_ZONE].random != condition.args[0]
 		opcodes.global_var_is_not: # Current zone's `global_var` value is not equal to `args[0]`
@@ -1113,8 +1146,8 @@ enum InstrYODA {
 	play_sound = 0xa
 	stop_sound = 0xb
 	roll_random = 0xc
-	set_temp = 0xd
-	incr_temp = 0xe
+	set_variable = 0xd
+	incr_variable = 0xe
 	set_tile_var = 0xf
 	hide_hero = 0x10
 	show_hero = 0x11
@@ -1150,12 +1183,12 @@ enum InstrINDY {
 	redraw_tile = 0x7
 	redraw_tiles_rect = 0x8
 	redraw = 0x9
-	set_temp = 0xa
+	set_variable = 0xa
 	play_sound = 0xb
 	stop_sound = 0xc
 	roll_random = 0xd
 	__UNKN_0xE = 0xe
-	incr_temp = 0xf
+	incr_variable = 0xf
 	set_tile_var = 0x10
 	hide_hero = 0x11
 	show_hero = 0x12
@@ -1225,10 +1258,10 @@ func perform_action_instruction(instruction, action):
 			randomize()
 			DATA.zones[CURRENT_ZONE].random = (randi() % instruction.args[0]) + 1
 			print("set rand to ",DATA.zones[CURRENT_ZONE].random)
-		opcodes.set_temp: # Set current zone's `temp` value to a `args[0]`
-			DATA.zones[CURRENT_ZONE].temp = instruction.args[0]
-		opcodes.incr_temp: # Add `args[0]` to current zone's `temp` value
-			DATA.zones[CURRENT_ZONE].temp += instruction.args[0]
+		opcodes.set_variable: # Set current zone's `variable` value to a `args[0]`
+			DATA.zones[CURRENT_ZONE].variable = instruction.args[0]
+		opcodes.incr_variable: # Add `args[0]` to current zone's `variable` value
+			DATA.zones[CURRENT_ZONE].variable += instruction.args[0]
 		opcodes.hide_hero: # (release_camera?)
 			pass # 7, 14, 0, 57, 0
 		opcodes.show_hero: # (lock_camera?)
@@ -1267,9 +1300,9 @@ func perform_action_instruction(instruction, action):
 			pass
 		opcodes.change_zone: # Change current zone to `args[0]`. Hero will be placed at `args[1]`x`args[2]` in the new zone
 			pass
-		opcodes.set_global_var: # Set current zone's `global_var` value to a `args[0]`
+		opcodes.set_global_var: # Set GLOBAL_VAR value to a `args[0]`
 			GLOBAL_VAR = instruction.args[0]
-		opcodes.incr_global_var: # Add `args[0]` to current zone's `global_var` value
+		opcodes.incr_global_var: # Add `args[0]` to GLOBAL_VAR
 			GLOBAL_VAR += instruction.args[0]
 		opcodes.set_random: # Set current zone's `random` value to a `args[0]`
 			DATA.zones[CURRENT_ZONE].random = instruction.args[0]

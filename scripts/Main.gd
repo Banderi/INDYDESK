@@ -9,8 +9,8 @@ func load_indy():
 	Game.generate_spritesheets()
 	Game.load_splashscreen($SplashScreen)
 
-func load_zone(id, map_origin):
-	var zone_data = Game.load_zone(id, map_origin)
+func print_zone_vars():
+	var zone_data = Game.DATA.zones[Game.CURRENT_ZONE]
 #	var tiles_htsp = $Hotspots
 #	var tiles_mnstr = $Monsters
 
@@ -75,6 +75,10 @@ func _process(_delta):
 	$UI/Label2.text += "zone_variable: %s\n" % [Game.DATA.zones[Game.CURRENT_ZONE].variable]
 	$UI/Label2.text += "zone_random: %s\n" % [Game.DATA.zones[Game.CURRENT_ZONE].random]
 	$UI/Label2.text += "GLOBAL_VAR: %s\n" % [Game.GLOBAL_VAR]
+	$UI/Label2.text += "JUST_ENTERED_ZONE: %s\n" % [Game.JUST_ENTERED_ZONE]
+	$UI/Label2.text += "JUST_ENTERED_ZONE_BY_VEHICLE: %s\n" % [Game.JUST_ENTERED_ZONE_BY_VEHICLE]
+	$UI/Label2.text += "can_control_hero: %s\n" % [Game.can_control_hero()]
+	$UI/Label2.text += "IS_WON_GAME: %s\n" % [Game.IS_WON_GAME]
 	
 	$UI/Label2.text += "\nstate: %s\n" % [Log.get_enum_string(HERO.States, HERO.state)]
 	$UI/Label2.text += "last_attempted_input: %s\n" % [HERO.last_attempted_input]
@@ -88,9 +92,13 @@ func _process(_delta):
 #	HERO.position += Vector2(2.0*randf()-1.0,2.0*randf()-1.0) * 25.0
 
 	$UI/FPS.text = str(Engine.get_frames_per_second()," FPS")
+	
+	if Game.JUST_ENTERED_ZONE:
+		print_zone_vars()
 
 
 func _on_Button_pressed():
+#	Game.play_sound(14)
 #	load_zone(120)
 #	load_zone(120, Vector2())
 #	Game.speech_bubble(HERO.tile_current,"Ahh, my home away from home...")
@@ -108,4 +116,5 @@ func _on_Button_pressed():
 
 
 func _on_SpinBox_value_changed(value):
-	load_zone(int(value), Vector2())
+#	load_zone(int(value), Vector2())
+	pass

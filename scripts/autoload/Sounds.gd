@@ -3,6 +3,7 @@ extends Node
 
 #onready var SOUND3D_SCN = load("res://scenes/FX/Sound3D.tscn")
 onready var SOUND_SCN = load("res://scenes/FX/Sound.tscn")
+onready var MIDI_SCN = load("res://scenes/FX/MIDI.tscn")
 
 # Audio buses are:
 # - "Master"
@@ -20,17 +21,24 @@ func set_volume(bus, value):
 
 func play_sound(sound: String, position, volume : float, bus : String, pitch_rnd = 0.0):
 	var node = null
-	if position == null:
-		node = SOUND_SCN.instance()
-		node.volume_db = linear2db(volume)
-#	else:
-#		node = SOUND3D_SCN.instance()
-#		node.translation = position
-#		node.unit_db = linear2db(volume)
-	if pitch_rnd != 0.0:
-		node.pitch_scale = rand_range(1.0 - pitch_rnd, 1.0 + pitch_rnd)
-	node.bus = bus
-	node.stream = load(str("res://audio/sfx/",sound))
+	if ".MID" in sound:
+		node = MIDI_SCN.instance()
+		node.volume_db = linear2db(volume - 0.65)
+		node.bus = bus
+		node.file = str("res://audio/sfx/",sound)
+#		node.soundfont = load("res://audio/WinGroove.sf2")
+	else:
+		if position == null:
+			node = SOUND_SCN.instance()
+			node.volume_db = linear2db(volume)
+#		else:
+#			node = SOUND3D_SCN.instance()
+#			node.translation = position
+#			node.unit_db = linear2db(volume)
+		if pitch_rnd != 0.0:
+			node.pitch_scale = rand_range(1.0 - pitch_rnd, 1.0 + pitch_rnd)
+		node.bus = bus
+		node.stream = load(str("res://audio/sfx/",sound))
 	Game.WORLD_ROOT.add_child(node)
 	node.set_pause_mode(2) # Set pause mode to Process
 	node.set_process(true)

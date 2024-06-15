@@ -1,0 +1,155 @@
+WinGroove Soundfont
+
+Created by Zorilla (original WinGroove software by Hiroki Nakayama)
+
+Release Date: 07-22-2017
+v1.2 Update: 08-23-2019
+
+This should work with any software that supports SF2 soundfonts, but I created
+it with the intention of being used with CoolSoft VirtualMIDISynth, which can
+be found here:
+
+http://coolsoft.altervista.org/en/virtualmidisynth
+
+Once installed, be sure to turn on sinc interpolated sample mixing in the
+Options tab. For some reason, it is turned off by default. This soundfont
+contains a lot of samples at reduced sample rates, and this greatly improves
+the quality of their playback.
+
+
+Background
+----------
+
+WinGroove was a MIDI software synthesizer written by Hiroki Nakayama and
+released in the mid-1990s. It was designed to be fast and lightweight enough
+to run on a 486DX running Windows 3.1 and featured a sound bank that barely
+exceeded 1 MB. Unfortunately, WinGroove never saw any major updates beyond
+its initial release, and was only ever available as a 16-bit, Windows 3.1-
+compatible application.
+
+Although it is possible to run WinGroove on just about any 32-bit Windows
+operating system, most of us have upgraded to 64-bit ages ago, which means it
+is no longer possible to run 16-bit applications now that the NTVDM
+compatibility layer has been removed. Now that I have converted WinGroove to a
+soundfont, it is now possible to enjoy its sound once again on modern systems.
+
+
+Changelog
+---------
+
+v1.2 (work resumed, again) (08-22-2019)
+-----
+
+- Pitch scaling has been fixed for Woodblock
+
+v1.2 (work resumed) (06-16-2018)
+-----
+
+- Switched from WinGroove 0.9E to 0.A4 Beta-2 as my reference and my previous
+  solution for reverb is now all wrong (setting all instruments to 50% reverb).
+  Versions of WinGroove after 0.9E have much better reverb and chorus control
+  and let you adjust them through MIDI control change events instead of just
+  applying a fixed amount globally. I have decided to remove reverb values from
+  the soundfont and let the MIDI output device handle it so that CC events can
+  be interpreted properly instead of getting overridden by the minimum value
+  set in the soundfont. This was affecting quite a few songs, including
+  TK_EATS.MID (a WinGroove demo song), which sets very low reverb during the
+  first few bars of the song and then raises it afterward.
+  
+- Pitch and volume envelope fixes for Saw Lead, Polysynth, Space Voice, Metal
+  Pad, and Echo Drops
+  
+- One of the two samples used in Polysynth was changed from Synth Brass to Saw
+  Lead (which is what it should have been from the start). Between this change
+  and the envelope fixes, Passport.mid sounds a lot less grating now.
+  
+- Crystal now uses the correct percussive sample (Glockenspiel instead of
+  NylonStrGt).
+
+- Added a third NylonStrGt sample (for notes F5 and up) that I missed
+  previously because it sounded so similar to the one below it when played at
+  certain notes. This also ended up being the correct attack sample I couldn't
+  find previously for the Atmosphere instrument.
+  
+- Found a version of the Warm Pad sample without celeste. This is good because
+  none of the 7 composite instruments that used this sample had that effect
+  applied to it (only the original Warm Pad did).
+
+v1.2 (08-25-2017)
+-----
+
+- Exclusive class fixes for drums (e.g. instruments that intentionally cut each
+  other off - scratch push & pull, crash cymbals, triangle were affected)
+
+- Vibrato rates now much more faithful to original instruments
+
+- 05 - E. Piano 2 - G6 was tuned an octave too low
+
+- Instruments now bear their original names as seen in WinGroove's instruments
+  window
+  
+- P08 - Drs.Room Kit now uses the same alternate hi-hat tunings as P01 - Drs.
+  Standard Kit 2 like it should.
+
+v1.1 (7-23-2017)
+----
+
+- Added Dance drum set (#26). All drum sets from WinGroove are now implemented.
+
+- P25 - BD attack sounded too soft in soundfont players due to trimming too
+  aggressively. Re-recorded the drum and left the ~300 samples of noise before
+  the actual kick drum starts.
+  
+- Trimmed and looped P25 - BD. Removed P25 - Ac. BD and shared it with P25 -
+  BD (they were essentially the same instrument with different volume decay).
+  
+- P00 - Slap was tuned to the wrong root key, possibly due to a typo. Changed
+  from 28 to 38.
+
+
+Development Notes
+-----------------
+
+- The samples for WinGroove were stored in a file called WINGROOV.TPD. When
+  inspecting its contents with a sound editor like Audacity, the samples it
+  contains appear to be some form of PCM, but they come out sounding overdriven
+  with lots of soft clipping. I suspect it is using some sort of nonstandard
+  amplitude mapping that no other application understands.
+
+  This meant I had to fall back to dubbing each note, figuring out the loop
+  points, and configuring the note envelopes and other properties, all by hand.
+  Because of this, I wasn't able to match WINGROOV.TPD's miniscule file size.
+  Maybe if I had direct access to the original sample data, I could have gotten
+  a better feel for how much I actually needed from each sample. 3.34 MB is
+  still a pretty great result, considering the size of some of the other
+  soundfonts released to the public.
+  
+  UPDATE (08-22-2019): a user on the VOGONS forums named pachuco was able to
+  determine that the samples stored in WINGROOV.TPD were encoded in µ-Law, but
+  with the lower half of the sample inverted, and was able to provide a copy of
+  the entire sample bank converted into a more commonly readable format. For
+  the first time, I am able to hear the samples in their raw, unaltered form,
+  and at their original sample rate. This paves the way to further improving
+  accuracy and reducing the soundfont's file size.
+
+- Because of WinGroove's age and incomatibility with modern versions of Windows
+  I had to resort to running it from Windows 3.1 running in DOSBox to record
+  its samples. This meant that I had to compose a MIDI file that played the
+  series of notes I was interested in recording (usually a chromatic ascent or
+  octaves and fifths), copy it over to DOSBox, play it back in WGPlayer, and
+  record the output in Audacity. This was usually enough to figure out the
+  sample ranges for each instrument (although considering WinGroove's
+  lightweight nature, very few instruments used more than one sample each--and
+  many reused samples from other instruments with some minor tweak to make them
+  unique).
+
+- As is usually the case, this soundfont is not 100% accurate. For one thing,
+  envelopes work differently in WinGroove than they do in a modern soundfont
+  player like VirtualMIDISynth. Many instruments in WinGroove have a linear
+  decay instead of logarithmic, and I have not found a way to achieve this in a
+  soundfount.
+  
+  Volume may be another issue. I've tried to match the sound levels of
+  instruments to one another as closely as possible, but those with a keen ear
+  may still find that a certain instrument sounds slightly louder or quieter
+  than it did in WinGroove.

@@ -9,6 +9,16 @@
 config_version=4
 
 _global_script_classes=[ {
+"base": "AudioStreamPlayer",
+"class": "AudioStreamPlayerADSR",
+"language": "GDScript",
+"path": "res://addons/midi/ADSR.gd"
+}, {
+"base": "Reference",
+"class": "Bank",
+"language": "GDScript",
+"path": "res://addons/midi/Bank.gd"
+}, {
 "base": "ConfirmationDialog",
 "class": "ConfirmationDialogExt",
 "language": "GDScript",
@@ -23,11 +33,31 @@ _global_script_classes=[ {
 "class": "GlobalScope",
 "language": "GDScript",
 "path": "res://scripts/classes/GlobalScope.gd"
+}, {
+"base": "Node",
+"class": "MidiPlayer",
+"language": "GDScript",
+"path": "res://addons/midi/MidiPlayer.gd"
+}, {
+"base": "Reference",
+"class": "SMF",
+"language": "GDScript",
+"path": "res://addons/midi/SMF.gd"
+}, {
+"base": "Reference",
+"class": "SoundFont",
+"language": "GDScript",
+"path": "res://addons/midi/SoundFont.gd"
 } ]
 _global_script_class_icons={
+"AudioStreamPlayerADSR": "",
+"Bank": "",
 "ConfirmationDialogExt": "",
 "DataFile": "",
-"GlobalScope": ""
+"GlobalScope": "",
+"MidiPlayer": "res://addons/midi/icon.png",
+"SMF": "",
+"SoundFont": ""
 }
 
 [application]
@@ -139,7 +169,7 @@ scroll_down={
 
 [network]
 
-limits/debugger_stdout/max_chars_per_second=20480
+limits/debugger_stdout/max_chars_per_second=204800
 
 [physics]
 

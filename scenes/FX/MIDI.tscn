@@ -1,0 +1,9 @@
+[gd_scene load_steps=2 format=2]
+
+[ext_resource path="res://scripts/FX/MIDI.gd" type="Script" id=1]
+
+[node name="MidiPlayer" type="Node"]
+script = ExtResource( 1 )
+soundfont = "res://audio/WinGroove.sf2"
+
+[connection signal="finished" from="." to="." method="_on_MidiPlayer_finished"]

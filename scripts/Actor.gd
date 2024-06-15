@@ -178,8 +178,9 @@ func do_movement(delta):
 func _process(delta):
 	do_movement(delta)
 	
-	if Input.is_action_pressed("attack"):
-		do_attack()
+	if Game.can_control_hero():
+		if Input.is_action_pressed("attack"):
+			do_attack()
 
 	# sprite animations
 	match state:

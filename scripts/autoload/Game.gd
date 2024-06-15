@@ -4,6 +4,8 @@ var IS_INDY = true
 
 var WORLD_ROOT = null
 var UI_ROOT = null
+var CAMERA = null
+
 var FADE = null
 func fadein():
 	FADE.fade_target = -1
@@ -32,8 +34,7 @@ const ANSI_ISO_8859_7 = [
 	"ΐ", "Α", "Β", "Γ", "Δ", "Ε", "Ζ", "Η", "Θ", "Ι", "Κ", "Λ", "Μ", "Ν", "Ξ", "Ο",
 	"Π", "Ρ", "", "Σ", "Τ", "Υ", "Φ", "Χ", "Ψ", "Ω", "Ϊ", "Ϋ", "ά", "έ", "ή", "ί",
 	"ΰ", "α", "β", "γ", "δ", "ε", "ζ", "η", "θ", "ι", "κ", "λ", "μ", "ν", "ξ", "ο",
-	"π", "ρ", "ς", "σ", "τ", "υ", "φ", "χ", "ψ", "ω", "ϊ", "ϋ", "ό", "ύ", "ώ", ""
-]
+	"π", "ρ", "ς", "σ", "τ", "υ", "φ", "χ", "ψ", "ω", "ϊ", "ϋ", "ό", "ύ", "ώ", ""]
 const ANSI_WINDOWS_1252 = [
 	"€", "", "‚", "ƒ", "„", "…", "†", "‡", "ˆ", "‰", "Š", "‹", "Œ", "", "Ž", "",
 	"", "‘", "’", "“", "”", "•", "–", "—", "˜", "™", "š", "›", "œ", "", "ž", "Ÿ",
@@ -42,8 +43,7 @@ const ANSI_WINDOWS_1252 = [
 	"À", "Á", "Â", "Ã", "Ä", "Å", "Æ", "Ç", "È", "É", "Ê", "Ë", "Ì", "Í", "Î", "Ï",
 	"Ð", "Ñ", "Ò", "Ó", "Ô", "Õ", "Ö", "×", "Ø", "Ù", "Ú", "Û", "Ü", "Ý", "Þ", "ß",
 	"à", "á", "â", "ã", "ä", "å", "æ", "ç", "è", "é", "ê", "ë", "ì", "í", "î", "ï",
-	"ð", "ñ", "ò", "ó", "ô", "õ", "ö", "÷", "ø", "ù", "ú", "û", "ü", "ý", "þ", "ÿ"
-]
+	"ð", "ñ", "ò", "ó", "ô", "õ", "ö", "÷", "ø", "ù", "ú", "û", "ü", "ý", "þ", "ÿ"]
 func ansi_to_string(bytes : PoolByteArray):
 	if bytes.size() == 0:
 		return ""
@@ -624,21 +624,43 @@ func load_daw(file_path):
 			"ENDF":
 				assert(s_size == 0)
 	Log.generic(null,"DAW file loaded sucessfully!")
+	
+	return
+	
 	for z in DATA.zones.size():
+#	for z in [120]:
 #	for z in [333]:
 		var zone = DATA.zones[z]
-		for action in zone.actions:
+		for a in zone.actions.size():
+			var action = zone.actions[a]
+			
+#			if action.name != "Hint1":
+#			if action.name != "floatboat":
+#				continue
+#			var printthis = false
+#			for instruction in action.instructions:
+##				if instruction.opcode == InstrINDY.set_variable:
+#				if instruction.opcode == 0xe:
+##				if instruction.args[0] == 2:
+#					printthis = true
+#			if !printthis:
+#				continue
+				
 #			for condition in action.conditions:
-##				if condition.opcode == 0xd:
-#				if action.name == "Hint1":
-##					var strf = (condition.args as PoolByteArray).get_string_from_ascii()
-##					print("%16s %16s %20s (%s)"%[action.name,condition.text,condition.args,strf])
-#					print("%16s %d %16s O: 0x%02X (%s)"%[zone.name,z,action.name,condition.opcode,condition.args])
+###				if condition.opcode == 0xd:
+##				if action.name == "Hint1":
+###					var strf = (condition.args as PoolByteArray).get_string_from_ascii()
+###					print("%16s %16s %20s (%s)"%[action.name,condition.text,condition.args,strf])
+##					print("%16s %d %16s O: 0x%02X (%s)"%[zone.name,z,action.name,condition.opcode,condition.args])
+#				print("%3d_%-13s %2d_%-13s O: %s (%s)"%[z,zone.name,a,action.name,Log.get_enum_string(CondINDY, condition.opcode),condition.args])
 			for instruction in action.instructions:
 #				if action.conditions[0].opcode == 0xe:
 #				if action.name == "Hint1":
-				if instruction.opcode == 0x1c:
-					print("%16s %d %16s I: 0x%02X (%s)"%[zone.name,z,action.name,instruction.opcode,instruction.args])
+#				if action.name == "floatboat":
+				if instruction.opcode == 0xf:
+#				if instruction.args[0] == 2:
+#					print("%16s %d %16s I: 0x%02X (%s)"%[zone.name,z,action.name,instruction.opcode,instruction.args])
+					print("%3d_%-13s %2d_%-13s I: %s (%s)"%[z,zone.name,a,action.name,Log.get_enum_string(InstrINDY, instruction.opcode),instruction.args])
 
 # Textures
 onready var IMAGE_BUFFER = Image.new()
@@ -1009,7 +1031,7 @@ enum CondINDY {
 	variable_is = 0x6
 	UNUSED7 = 0x7
 	UNUSED8 = 0x8
-	game_not_completed = 0x9 # ??
+	game_is_completed = 0x9 # ??
 	has_item = 0xa
 	UNUSEDB = 0xb
 	random_is_greater_than = 0xc
@@ -1041,7 +1063,7 @@ enum CondINDY {
 	global_var_is_not = 0x1025
 	tile_var_is = 0x1026
 	exp_greater_than = 0x1027
-	game_is_completed = 0x1028
+	game_not_completed = 0x1028
 }
 func evaluate_action_condition(condition, action):
 	if CURRENT_ZONE == 333:
@@ -1148,14 +1170,14 @@ enum InstrYODA {
 	roll_random = 0xc
 	set_variable = 0xd
 	incr_variable = 0xe
-	set_tile_var = 0xf
-	hide_hero = 0x10
-	show_hero = 0x11
+	set_tile_var = 0xf # same as 'set_tile'
+	hide_hero = 0x10 # release camera
+	show_hero = 0x11 # lock camera
 	move_hero_to = 0x12
-	move_hero_by = 0x13
+	move_hero_by = 0x13 # move camera
 	disable_action = 0x14
-	enable_hotspot = 0x15
-	disable_hotspot = 0x16
+	enable_hotspot = 0x15 # enable object?
+	disable_hotspot = 0x16 # disable object?
 	enable_monster = 0x17
 	disable_monster = 0x18
 	enable_all_monsters = 0x19
@@ -1163,7 +1185,7 @@ enum InstrYODA {
 	drop_item = 0x1b
 	add_item = 0x1c
 	remove_item = 0x1d
-	mark_as_solved = 0x1e
+	mark_as_solved = 0x1e # open? show?
 	win_game = 0x1f
 	lose_game = 0x20
 	change_zone = 0x21
@@ -1179,17 +1201,17 @@ enum InstrINDY {
 	move_tile = 0x3
 	draw_tile = 0x4
 	speak_hero = 0x5
-	__UNKN_0x6 = 0x6
+	wait = 0x6
 	redraw_tile = 0x7
 	redraw_tiles_rect = 0x8
-	redraw = 0x9
-	set_variable = 0xa
+	set_variable = 0x9
+	incr_variable = 0xa
 	play_sound = 0xb
 	stop_sound = 0xc
 	roll_random = 0xd
-	__UNKN_0xE = 0xe
-	incr_variable = 0xf
-	set_tile_var = 0x10
+	__UNKN_0xE = 0xe # ??? no args
+	__UNKN_0xF = 0xf # ??? no args
+	set_tile_var = 0x10 # same as 'set_tile'
 	hide_hero = 0x11
 	show_hero = 0x12
 	move_hero_to = 0x13 # release_camera?
@@ -1213,7 +1235,7 @@ enum InstrINDY {
 	set_random = 0x25
 	add_health = 0x26
 	##
-	wait = 0x1027
+	redraw = 0x1027
 	drop_item = 0x1028
 }
 func perform_action_instruction(instruction, action):
@@ -1331,9 +1353,8 @@ onready var SPEECH_SCN = load("res://scenes/SpeechBubble.tscn")
 func speech_bubble(tile, text):
 	pause_game()
 	SPEECH_PLAYING = SPEECH_SCN.instance()
-	SPEECH_PLAYING.rect_position = to_vector(tile) + Vector2(2,-20)
-#	SPEECH_PLAYING.IS_FLIPPED = false
-	WORLD_ROOT.add_child(SPEECH_PLAYING)
+	SPEECH_PLAYING.TILE = tile
+	UI_ROOT.add_child(SPEECH_PLAYING)
 	SPEECH_PLAYING.set_text(text)
 func play_sound(sound_id):
 	Sounds.play_sound(Game.DATA.sounds[sound_id],null,1.0,"Master")
@@ -1343,6 +1364,7 @@ func new_game():
 	IS_WON_GAME = false
 	FADE.modulate.a = 1.0
 	load_zone(120, Vector2())
+#	Game.play_sound(15)
 	HERO_ACTOR.position = to_vector(Vector2(11, 5))
 	yield(fadein(),"completed")
 

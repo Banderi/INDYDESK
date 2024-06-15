@@ -9,7 +9,6 @@ onready var SPACE_WIDTH = FONT.get_string_size(" ").x
 
 export var IS_FLIPPED = false
 var TOTAL_LINES = 2
-
 func set_text(text):
 	TEXT_BOX.rect_size.y = 0
 	TEXT_BOX.text = text
@@ -48,8 +47,9 @@ func set_text(text):
 	else:
 		PANEL.rect_position.y = -54 - (PANEL.rect_size.y - PANEL.rect_min_size.y)
 	
-	# update text scroll
+	# update text scroll & global positioning
 	scroll(0)
+	follow_tile()
 
 var LINE = 0
 func scroll(dir):	
@@ -58,6 +58,11 @@ func scroll(dir):
 	$Panel/BtnUp.disabled = LINE == 0
 	$Panel/BtnDown.disabled = LINE == max_line
 	TEXT_BOX.rect_position.y = -LINE_HEIGHT * LINE
+
+var TILE = null
+func follow_tile():
+	rect_position = Game.to_vector(TILE) + Vector2(2,-20) + OS.window_size / 2 - Game.CAMERA.position
+	pass
 
 func _on_BtnUp_pressed():
 	scroll(-1)
@@ -73,3 +78,8 @@ func _input(event):
 		scroll(-1)
 	if Input.is_action_pressed("scroll_down"):
 		scroll(1)
+	if Input.is_action_just_pressed("ui_cancel"):
+		_on_BtnContinue_pressed()
+
+func _process(delta):
+	follow_tile()

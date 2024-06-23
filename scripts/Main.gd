@@ -26,6 +26,19 @@ func print_zone_vars():
 			"" if hotspot.enabled else "(off)"
 		]
 #		tiles_htsp.set_cell(hotspot.x,hotspot.y,0)
+	label.text += "\n\nActions:"
+	for a in zone_data.actions.size():
+		var action = zone_data.actions[a]
+#		label.text += "\n(%d,%d) <%d> %s %s %s" % [
+#			hotspot.x, hotspot.y,
+#			hotspot.type, Log.get_enum_string(Game.Hotspots, hotspot.type),
+#			"" if hotspot.args == 65535 else str("(",hotspot.args,")"),
+#			"" if hotspot.enabled else "(off)"
+#		]
+		label.text += "\n%d: %s%s" % [
+			a, action.name, "" if action.enabled else " (OFF)"
+		]
+	
 	
 	label.text += "\n\nMonsters:"
 	for monster in zone_data.monsters:
@@ -51,11 +64,12 @@ func _ready():
 	Game.FLOOR_TILES = $Floor
 	Game.WALL_TILES = $Walls
 	Game.ROOF_TILES = $Ceiling
+	$UI/Fade.modulate.a = 1.0
 	load_indy()
-#	load_zone(120, Vector2())
-	Game.new_game()
+	
+#	Game.new_game()
+	Game.load_game("E:/Games/INDYDESK/3.WLD")
 #	Game.load_zone(120)
-#	load_zone(121)
 
 #	Game.speech_bubble(HERO.tile_current,"Ahh, my home away from home...")
 #	Game.speech_bubble(HERO.tile_current,"Ahh, my home away from home...\n\nLINE3...\nLINE4...")
@@ -69,7 +83,11 @@ func _ready():
 
 # Called every frame. 'delta' is the elapsed time since the previous frame.
 func _process(_delta):
+	$UI/FPS.text = str(Engine.get_frames_per_second()," FPS")
+	
 	$UI/Label2.text = "fade: %s\n" % [Game.FADE.modulate.a]
+	if !Game.is_in_game():
+		return
 	$UI/Label2.text += "current_zone: <%s> %s\n" % [Game.CURRENT_ZONE, Game.DATA.zones[Game.CURRENT_ZONE].name]
 	$UI/Label2.text += "rooms_stack: %s\n" % [Game.ROOMS_STACK]
 	$UI/Label2.text += "zone_variable: %s\n" % [Game.DATA.zones[Game.CURRENT_ZONE].variable]
@@ -91,16 +109,15 @@ func _process(_delta):
 	
 #	HERO.position += Vector2(2.0*randf()-1.0,2.0*randf()-1.0) * 25.0
 
-	$UI/FPS.text = str(Engine.get_frames_per_second()," FPS")
 	
-	if Game.JUST_ENTERED_ZONE:
-		print_zone_vars()
+	print_zone_vars()
+	
+#	if Game.JUST_ENTERED_ZONE:
+#		print_zone_vars()
 
 
 func _on_Button_pressed():
 #	Game.play_sound(14)
-#	load_zone(120)
-#	load_zone(120, Vector2())
 #	Game.speech_bubble(HERO.tile_current,"Ahh, my home away from home...")
 	Game.speech_bubble(HERO.tile_current,"Ahh, my home away from home...\n\nLINE3...\nLINE4...")
 #	Game.load_zone(120, Vector2())
@@ -111,10 +128,9 @@ func _on_Button_pressed():
 #	$SpinBox.value = 0
 #	for n in $ScrollContainer/VBoxContainer.get_children():
 #		save_texture(n.texture, "")
-#	load_zone(120)
 	pass
 
 
 func _on_SpinBox_value_changed(value):
-#	load_zone(int(value), Vector2())
+	Game.load_zone(int(value), Vector2())
 	pass

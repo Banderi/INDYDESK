@@ -338,62 +338,65 @@ var DATA = {
 	"puzzles": [],
 	"characters": {},
 }
-func assert_marker(marker):
-	var found = DAW.get_buffer(4).get_string_from_ascii()
+func assert_marker(marker, size = 4):
+	var found = FILE.get_buffer(size).get_string_from_ascii()
 	if OS.is_debug_build():
 		assert(found == marker)
 	else:
 		if found != marker:
-			Log.error(null,GlobalScope.Error.ERR_INVALID_DATA,"Found incorrect marker at %0x08X - expected '%s', found '%s'"%[DAW.get_position()-4,marker,found])
+			Log.error(null,GlobalScope.Error.ERR_INVALID_DATA,"Found incorrect marker at %0x08X - expected '%s', found '%s'"%[
+				FILE.get_position() - size,
+				marker,
+				found])
 			get_tree().quit()
 
-var DAW = DataFile.new()
+var FILE = DataFile.new()
 func load_daw(file_path):
-	var r = DAW.open(file_path, File.READ)
+	var r = FILE.open(file_path, File.READ)
 	if r != OK:
 		Log.error(null,r,"could not load DAW file!")
 	
-	DAW.seek(4)
-	DATA["VERS"] = DAW.get_32()
+	FILE.seek(4)
+	DATA["VERS"] = FILE.get_32()
 	Log.generic(null,"'VERS' at 0x00000000: %d" % [DATA["VERS"]])
 	
-	while !DAW.end_reached():
-		var offset = DAW.get_position()
-		var s_name = DataStruct.as_text(DAW.read("str4"))
-		var s_size = DAW.get_32()
-		var end_of_section = DAW.get_position() + s_size
+	while !FILE.end_reached():
+		var offset = FILE.get_position()
+		var s_name = DataStruct.as_text(FILE.read("str4"))
+		var s_size = FILE.get_32()
+		var end_of_section = FILE.get_position() + s_size
 		Log.generic(null,"'%s' at 0x%08X: %d bytes" % [s_name, offset, s_size])
 		match s_name:
 			"STUP": # splash screen
-				DATA.splash = DAW.get_buffer(s_size)
+				DATA.splash = FILE.get_buffer(s_size)
 			"SNDS": # sound files namess
-				var _unk_num = DAW.get_16()
-				while DAW.get_position() < end_of_section:
-					var subs_size = DAW.get_16()
-					var original_path = DAW.get_buffer(subs_size).get_string_from_ascii()
+				var _unk_num = FILE.get_16()
+				while FILE.get_position() < end_of_section:
+					var subs_size = FILE.get_16()
+					var original_path = FILE.get_buffer(subs_size).get_string_from_ascii()
 					var snd_filename = Array(original_path.split("\\")).pop_back()
 					DATA.sounds.push_back(snd_filename)
 			"TILE": # tile bitmaps
-				while DAW.get_position() < end_of_section:
+				while FILE.get_position() < end_of_section:
 					DATA.tiles.push_back({
 						"name": "",
-						"flags": DAW.get_32(),
-						"bmp": DAW.get_buffer(1024)
+						"flags": FILE.get_32(),
+						"bmp": FILE.get_buffer(1024)
 					})
 			"ZONE": # zones data
-				for i in DAW.get_16():
+				for i in FILE.get_16():
 					assert_marker("IZON")
-					var _subs_size = DAW.get_32()
-					var z_width = DAW.get_16()
-					var z_height = DAW.get_16()
-					var z_type = DAW.get_32()
+					var _subs_size = FILE.get_32()
+					var z_width = FILE.get_16()
+					var z_height = FILE.get_16()
+					var z_type = FILE.get_32()
 					var z_total_tiles = z_width * z_height
 					var z_tiles = []
 					for _t in z_total_tiles:
 						z_tiles.push_back([
-							signed_u16(DAW.get_16()),
-							signed_u16(DAW.get_16()),
-							signed_u16(DAW.get_16()),
+							signed_u16(FILE.get_16()),
+							signed_u16(FILE.get_16()),
+							signed_u16(FILE.get_16()),
 						])
 					DATA.zones.push_back({
 						"name": "",
@@ -417,157 +420,157 @@ func load_daw(file_path):
 						"variable": 0,
 						"random": 0,
 					})
-					if DAW.get_position() > end_of_section:
+					if FILE.get_position() > end_of_section:
 						break
 			"ZAUX": # monsters, required items
 				for i in DATA.zones.size():
 					assert_marker("IZAX")
-					var _subs_size = DAW.get_32()
-					DATA.zones[i].unkn_zaux = DAW.get_16()
-					for _i in DAW.get_16():
+					var _subs_size = FILE.get_32()
+					DATA.zones[i].unkn_zaux = FILE.get_16() # seems to correlate with monsters present in zone
+					for _i in FILE.get_16():
 						DATA.zones[i].monsters.push_back({
-							"id": DAW.get_16(),
-							"x": signed_u16(DAW.get_16()),
-							"y": signed_u16(DAW.get_16()),
+							"id": FILE.get_16(),
+							"x": signed_u16(FILE.get_16()),
+							"y": signed_u16(FILE.get_16()),
 						})
-					for _i in DAW.get_16():
-						DATA.zones[i].required_items.push_back(DAW.get_16())
+					for _i in FILE.get_16():
+						DATA.zones[i].required_items.push_back(FILE.get_16())
 			"ZAX2": # reward items
 				for i in DATA.zones.size():
 					assert_marker("IZX2")
-					var _subs_size = DAW.get_32()
-					for _i in DAW.get_16():
-						DATA.zones[i].reward_items.push_back(DAW.get_16())
+					var _subs_size = FILE.get_32()
+					for _i in FILE.get_16():
+						DATA.zones[i].reward_items.push_back(FILE.get_16())
 			"ZAX3": # npcs
 				for i in DATA.zones.size():
 					assert_marker("IZX3")
-					var _subs_size = DAW.get_32()
-					for _i in DAW.get_16():
-						DATA.zones[i].npcs.push_back(DAW.get_16())
+					var _subs_size = FILE.get_32()
+					for _i in FILE.get_16():
+						DATA.zones[i].npcs.push_back(FILE.get_16())
 			"ZAX4": # ??? ALL of these are... [1, 0] apparently?
 				for i in DATA.zones.size():
 					assert_marker("IZX4")
-					var subs_size = DAW.get_32()
-					var subs_data = DAW.get_buffer(subs_size)
+					var subs_size = FILE.get_32()
+					var subs_data = FILE.get_buffer(subs_size)
 					DATA.zones[i].izx4.push_back(subs_data)
 			"HTSP": # hotspots (triggers)
-				while DAW.get_position() < end_of_section:
-					var zone_id = DAW.get_16()
+				while FILE.get_position() < end_of_section:
+					var zone_id = FILE.get_16()
 					if zone_id == 65535:
 						break
-					for _i in DAW.get_16():
+					for _i in FILE.get_16():
 						DATA.zones[zone_id].hotspots.push_back({
-							"type": DAW.get_32(),
-							"x": DAW.get_16(),
-							"y": DAW.get_16(),
-							"enabled": DAW.get_16(),
-							"args": DAW.get_16(),
+							"type": FILE.get_32(),
+							"x": FILE.get_16(),
+							"y": FILE.get_16(),
+							"enabled": FILE.get_16(),
+							"args": FILE.get_16(),
 						})
 			"ACTN": # action scripts
-				while DAW.get_position() < end_of_section:
-					var zone_id = DAW.get_16()
+				while FILE.get_position() < end_of_section:
+					var zone_id = FILE.get_16()
 					if zone_id == 65535:
 						break
-					for _a in DAW.get_16():
+					for _a in FILE.get_16():
 						assert_marker("IACT")
-						var _subs_size = DAW.get_32()
+						var _subs_size = FILE.get_32()
 						var action_data = {
 							"name": "",
 							"enabled": true,
 							"conditions": [],
 							"instructions": [],
 						}
-						for _c in DAW.get_16(): # conditions
+						for _c in FILE.get_16(): # conditions
 							var condition = {
-								"opcode": DAW.get_16(),
+								"opcode": FILE.get_16(),
 								"args": [
-									DAW.get_16(),
-									DAW.get_16(),
-									DAW.get_16(),
-									DAW.get_16(),
-									DAW.get_16(),
+									FILE.get_16(),
+									FILE.get_16(),
+									FILE.get_16(),
+									FILE.get_16(),
+									FILE.get_16(),
 								],
 								"met": false
 							}
-							var text_length = DAW.get_16()
-							condition["text"] = ansi_to_string(DAW.get_buffer(text_length))
+							var text_length = FILE.get_16()
+							condition["text"] = ansi_to_string(FILE.get_buffer(text_length))
 							action_data.conditions.push_back(condition)
-						for _i in DAW.get_16(): # instructions
+						for _i in FILE.get_16(): # instructions
 							var instruction = {
-								"opcode": DAW.get_16(),
+								"opcode": FILE.get_16(),
 								"args": [
-									DAW.get_16(),
-									DAW.get_16(),
-									DAW.get_16(),
-									DAW.get_16(),
-									DAW.get_16(),
+									FILE.get_16(),
+									FILE.get_16(),
+									FILE.get_16(),
+									FILE.get_16(),
+									FILE.get_16(),
 								],
 							}
-							var text_length = DAW.get_16()
-							instruction["text"] = ansi_to_string(DAW.get_buffer(text_length))
+							var text_length = FILE.get_16()
+							instruction["text"] = ansi_to_string(FILE.get_buffer(text_length))
 							action_data.instructions.push_back(instruction)
 						DATA.zones[zone_id].actions.push_back(action_data)
 			"PUZ2": # puzzles
-				while DAW.get_position() < end_of_section:
-					var zone_id = DAW.get_16()
+				while FILE.get_position() < end_of_section:
+					var zone_id = FILE.get_16()
 					if zone_id == 65535:
 						break
 					assert_marker("IPUZ")
-					var subs_size = DAW.get_32()
+					var subs_size = FILE.get_32()
 					DATA.puzzles.push_back({
 						"name": "",
-						"type": DAW.get_32(),
-						"item1_class": DAW.get_32(),
-						"item2_class": DAW.get_32(),
-						"ipuz_strings": DAW.get_buffer(subs_size - 16).get_string_from_ascii(),
-						"item1": DAW.get_16(),
-						"item2": DAW.get_16()
+						"type": FILE.get_32(),
+						"item1_class": FILE.get_32(),
+						"item2_class": FILE.get_32(),
+						"ipuz_strings": FILE.get_buffer(subs_size - 16).get_string_from_ascii(),
+						"item1": FILE.get_16(),
+						"item2": FILE.get_16()
 					})
 					DATA.zones[zone_id].puzzle = DATA.puzzles.size() - 1
 			"CHAR": # characters
-				while DAW.get_position() < end_of_section:
-					var char_id = DAW.get_16()
+				while FILE.get_position() < end_of_section:
+					var char_id = FILE.get_16()
 					if char_id == 65535:
 						break
 					assert_marker("ICHA")
-					var _subs_size = DAW.get_32()
-					var c_name = DAW.get_buffer(16).get_string_from_ascii()
+					var _subs_size = FILE.get_32()
+					var c_name = FILE.get_buffer(16).get_string_from_ascii()
 					var data = {
 						"name": c_name,
-						"type": DAW.get_16(),
-						"movement_type": DAW.get_16(),
+						"type": FILE.get_16(),
+						"movement_type": FILE.get_16(),
 						"sprites1": [
 							# DIRECTIONS (corner): NW NE SW SE
 							# DIRECTIONS (side): S W N E
-							DAW.get_16(),	# N ^
-							DAW.get_16(),	# S v
-							DAW.get_16(),	# N ^
-							DAW.get_16(),	# W <
-							DAW.get_16(),	# W <
-							DAW.get_16(),	# N ^
-							DAW.get_16(),	# E >
-							DAW.get_16()	# E >
+							FILE.get_16(),	# N ^
+							FILE.get_16(),	# S v
+							FILE.get_16(),	# N ^
+							FILE.get_16(),	# W <
+							FILE.get_16(),	# W <
+							FILE.get_16(),	# N ^
+							FILE.get_16(),	# E >
+							FILE.get_16()	# E >
 						],
 						"sprites2": [
 							# frame 1
-							DAW.get_16(),	# N ^
-							DAW.get_16(),	# S v
-							DAW.get_16(),	# N ^
-							DAW.get_16(),	# W <
-							DAW.get_16(),	# W <
-							DAW.get_16(),	# N ^
-							DAW.get_16(),	# E >
-							DAW.get_16(),	# E >
+							FILE.get_16(),	# N ^
+							FILE.get_16(),	# S v
+							FILE.get_16(),	# N ^
+							FILE.get_16(),	# W <
+							FILE.get_16(),	# W <
+							FILE.get_16(),	# N ^
+							FILE.get_16(),	# E >
+							FILE.get_16(),	# E >
 							
 							# frame 2
-							DAW.get_16(),	# N ^
-							DAW.get_16(),	# S v
-							DAW.get_16(),	# N ^
-							DAW.get_16(),	# W <
-							DAW.get_16(),	# W <
-							DAW.get_16(),	# N ^
-							DAW.get_16(),	# E >
-							DAW.get_16(),	# E >
+							FILE.get_16(),	# N ^
+							FILE.get_16(),	# S v
+							FILE.get_16(),	# N ^
+							FILE.get_16(),	# W <
+							FILE.get_16(),	# W <
+							FILE.get_16(),	# N ^
+							FILE.get_16(),	# E >
+							FILE.get_16(),	# E >
 						],
 						"sprites": HERO_SPRITESHEET if c_name == "HERO" else SpriteFrames.new(),
 						
@@ -581,49 +584,62 @@ func load_daw(file_path):
 						data.sprites2[f] = signed_u16(data.sprites2[f])
 					DATA.characters[char_id] = data
 			"CHWP": # weapons
-				while DAW.get_position() < end_of_section:
-					var char_id = DAW.get_16()
+				while FILE.get_position() < end_of_section:
+					var char_id = FILE.get_16()
 					if char_id == 65535:
 						break
-					DATA.characters[char_id].weapon_refid = DAW.get_16() # id of weapon "character" if monster, or id of attack sound if weapon
-					DATA.characters[char_id].weapon_health = DAW.get_16()
+					DATA.characters[char_id].weapon_refid = FILE.get_16() # id of weapon "character" if monster, or id of attack sound if weapon
+					DATA.characters[char_id].weapon_health = FILE.get_16()
 			"CAUX": # monster damage
-				while DAW.get_position() < end_of_section:
-					var char_id = DAW.get_16()
+				while FILE.get_position() < end_of_section:
+					var char_id = FILE.get_16()
 					if char_id == 65535:
 						break
-					DATA.characters[char_id].damage = DAW.get_16()
+					DATA.characters[char_id].damage = FILE.get_16()
 			"TNAM": # tiles names
-				while DAW.get_position() < end_of_section:
-					var tile_id = DAW.get_16()
+				while FILE.get_position() < end_of_section:
+					var tile_id = FILE.get_16()
 					if tile_id == 65535:
 						break
-					DATA.tiles[tile_id].name = DAW.get_buffer(16).get_string_from_ascii()
+					DATA.tiles[tile_id].name = FILE.get_buffer(16).get_string_from_ascii()
 			"ZNAM": # zones names
-				while DAW.get_position() < end_of_section:
-					var zone_id = DAW.get_16()
+				while FILE.get_position() < end_of_section:
+					var zone_id = FILE.get_16()
 					if zone_id == 65535:
 						break
-					DATA.zones[zone_id].name = DAW.get_buffer(16).get_string_from_ascii()
+					DATA.zones[zone_id].name = FILE.get_buffer(16).get_string_from_ascii()
 			"PNAM": # puzzles names
-				var num_subs = DAW.get_16()
+				var num_subs = FILE.get_16()
 				for puzzle_id in num_subs:
-					DATA.puzzles[puzzle_id].name = DAW.get_buffer(16).get_string_from_ascii()
-					if DAW.get_position() > end_of_section:
+					DATA.puzzles[puzzle_id].name = FILE.get_buffer(16).get_string_from_ascii()
+					if FILE.get_position() > end_of_section:
 						break
 			"ANAM": # action scripts names
-				while DAW.get_position() < end_of_section:
-					var zone_id = DAW.get_16()
+				while FILE.get_position() < end_of_section:
+					var zone_id = FILE.get_16()
 					if zone_id == 65535:
 						break
 					while true:
-						var action_id = DAW.get_16()
+						var action_id = FILE.get_16()
 						if action_id == 65535:
 							break
-						DATA.zones[zone_id].actions[action_id].name = DAW.get_buffer(16).get_string_from_ascii()
+						DATA.zones[zone_id].actions[action_id].name = FILE.get_buffer(16).get_string_from_ascii()
 			"ENDF":
 				assert(s_size == 0)
 	Log.generic(null,"DAW file loaded sucessfully!")
+	
+	var h = 0
+	for z in DATA.zones.size():
+		var zone = DATA.zones[z]
+		for hotspot in zone.hotspots:
+			h += 1
+			if h == 449:
+				pass
+	print("hotspots:", h)
+		
+#	for p in DATA:
+#		if DATA[p] is Array || DATA[p] is Dictionary:
+#			print(p, ": ", DATA[p].size())
 	
 	return
 	
@@ -933,11 +949,15 @@ func _process(delta):
 		return false
 	if is_fading():
 		return false
+	if !is_in_game():
+		return false
 	
 	# actions
 	var action_was_executed = false
-	for action in DATA.zones[CURRENT_ZONE].actions:
+	for a in DATA.zones[CURRENT_ZONE].actions.size():
+		var action = DATA.zones[CURRENT_ZONE].actions[a]
 		if do_action_script(action):
+			print(a,":",action.name)
 			action_was_executed = true
 	JUST_ENTERED_ZONE = false
 
@@ -976,7 +996,6 @@ func do_action_script(action):
 	for condition in action.conditions:
 		if !evaluate_action_condition(condition, action):
 			return false
-	print(action.name)
 	for instruction in action.instructions:
 		perform_action_instruction(instruction, action)
 	return true
@@ -1347,7 +1366,7 @@ func spawn_object(tile_id, x, y, zone_id):
 func spawn_monster(char_id, x, y): # TODO
 	pass
 
-# Game fancy stuff
+# Game stuff
 var SPEECH_PLAYING = null
 onready var SPEECH_SCN = load("res://scenes/SpeechBubble.tscn")
 func speech_bubble(tile, text):
@@ -1359,13 +1378,181 @@ func speech_bubble(tile, text):
 func play_sound(sound_id):
 	Sounds.play_sound(Game.DATA.sounds[sound_id],null,1.0,"Master")
 
+# Game world data
 var IS_WON_GAME = false
-func new_game():
+var GAME_DATA_DUMMY = {
+	"seed_unkn": null,
+	"indoor_zones_unk": [],
+	"zones": {},
+	"map": [],
+	"inventory": [],
+	"current_zone": null,
+	"unk2": null,
+	"unk3": null,
+	"item_selected": null,
+	"hero_x_coord": null,
+	"hero_y_coord": null,
+	"unk4": null,
+	"unk5": null,
+	"unk6": null,
+	"game_timer": null,
+	"unk7": null,
+	"weapon_stats_unk1": null,
+	"weapon_stats_unk2": null,
+}
+var GAME_DATA = GAME_DATA_DUMMY.duplicate()
+func is_in_game():
+	return CURRENT_ZONE != -1
+func new_game(): # TODO
 	IS_WON_GAME = false
-	FADE.modulate.a = 1.0
+#	FADE.modulate.a = 1.0
 	load_zone(120, Vector2())
 #	Game.play_sound(15)
 	HERO_ACTOR.position = to_vector(Vector2(11, 5))
+	yield(fadein(),"completed")
+
+func load_game(file_path):
+	IS_WON_GAME = false
+
+	# open save file!
+	var r = FILE.open(file_path, File.READ)
+	if r != OK:
+		Log.error(null,r,"could not load WLD file!")
+	
+	# flush game data
+	GAME_DATA = GAME_DATA_DUMMY.duplicate()
+	
+#	assert_in_file(SAV, "INDYSAV", 7)
+	var file_type = FILE.get_buffer(7).get_string_from_ascii()
+	var sav_version = FILE.get_buffer(2).get_string_from_ascii().to_int()
+	Log.generic(null,"'%s' Savegame version: %d" % [file_type,sav_version])
+	GAME_DATA.seed_unkn = FILE.get_32()
+	
+	# unkn. value for indoor zones (rooms)
+	for _m in FILE.get_16():
+		GAME_DATA.indoor_zones_unk.push_back(FILE.get_16())
+	
+	# 10x10 map tiles
+	GAME_DATA.map = []
+	for i in 100:
+		GAME_DATA.map.push_back({
+			"discovered": FILE.get_16(),
+			"unk1": FILE.get_16(),
+			"solved": FILE.get_16(),
+			"zone_id": signed_u16(FILE.get_16()),
+			"unk2": [
+				signed_u16(FILE.get_16()),
+				signed_u16(FILE.get_16()),
+				signed_u16(FILE.get_16()),
+				signed_u16(FILE.get_16()),
+				signed_u16(FILE.get_16()),
+			]
+		})
+	
+	# actual zones data
+	var prev_zone_args = []
+	while true:
+		assert(!FILE.end_reached())
+		var map_x = null
+		var map_y = null
+		var zone_id = null
+		var discovered = null
+		
+		var a = FILE.get_16()
+		var b = FILE.get_16()
+		if a == 65535 && b == 65535: # end of the list
+			break
+		
+		var is_room = false
+		if a in prev_zone_args: # we assume that the zone id is part of the parent's hotspots list
+			is_room = true
+			zone_id = a
+			discovered = bool(b)
+		else:
+			prev_zone_args = []
+			map_x = a
+			map_y = b
+			zone_id = FILE.get_16()
+			discovered = bool(FILE.get_16())
+		var unk1 = FILE.get_16() # 00 00
+		
+		var unk2 = null
+		var unk3 = null
+		var unk4 = null
+		var unk5 = null
+		var zone_tiles = []
+		var hotspots = []
+		var unk_32bytes = []
+		var actions = []
+		
+		# zone tiles + 3 header unkn. values
+		if discovered:
+			unk2 = FILE.get_16()
+			unk3 = FILE.get_16()
+			unk4 = FILE.get_16()
+			var total_tiles = DATA.zones[zone_id].width * DATA.zones[zone_id].height
+			for _t in total_tiles:
+				zone_tiles.push_back([
+					signed_u16(FILE.get_16()),
+					signed_u16(FILE.get_16()),
+					signed_u16(FILE.get_16()),
+				])
+			unk5 = FILE.get_16() # 01 00
+		# hotspots
+		for _i in FILE.get_16():
+			var enabled = bool(FILE.get_16())
+			var args = FILE.get_16()
+			hotspots.push_back({
+				"enabled": enabled,
+				"args": args,
+			})
+			prev_zone_args.push_back(args)
+		if discovered:
+			# ??
+			for _i in FILE.get_16():
+				var arr = []
+				for _n in 16:
+					arr.push_back(signed_u16(FILE.get_16()))
+				unk_32bytes.push_back(arr)
+			# actions
+			for _i in FILE.get_16():
+				actions.push_back(bool(FILE.get_16()))
+		
+		GAME_DATA.zones[zone_id] = {
+			"map_x": map_x,
+			"map_y": map_y,
+			"discovered": discovered,
+			"unk1": unk1,
+			"unk2": unk2,
+			"unk3": unk3,
+			"unk4": unk4,
+			"tiles": zone_tiles,
+			"unk5": unk5,
+			"hotspots": hotspots,
+			"unk_32bytes": unk_32bytes,
+			"actions": actions,
+		}
+	
+	# game stats
+	for _i in FILE.get_16():
+		GAME_DATA.inventory.push_back(FILE.get_16())
+	GAME_DATA.current_zone = FILE.get_16()
+	GAME_DATA.unk2 = FILE.get_16()
+	GAME_DATA.unk3 = FILE.get_16()
+	GAME_DATA.item_selected = FILE.get_16()
+	GAME_DATA.hero_x_coord = FILE.get_16()
+	GAME_DATA.hero_y_coord = FILE.get_16()
+	GAME_DATA.unk4 = FILE.get_16()
+	GAME_DATA.unk5 = FILE.get_16()
+	GAME_DATA.unk6 = FILE.get_16()
+	GAME_DATA.game_timer = FILE.get_32()
+	GAME_DATA.unk7 = FILE.get_16()
+	GAME_DATA.weapon_stats_unk1 = FILE.get_16()
+	GAME_DATA.weapon_stats_unk2 = FILE.get_16()
+	
+	assert(FILE.get_position() == FILE.get_len())
+
+
 	yield(fadein(),"completed")
 
 var INVENTORY = []

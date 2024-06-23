@@ -1,0 +1,48 @@
+
+====== HEADER DATA ======
+"INDYSAV"
+"44"
+[4 bytes]
+u16: num. of zones in map
+	n * {u16}: zone IDs
+
+====== MAP TILES ======
+100 * {discovered, ?, solved, zone ID, 5 * u16}
+
+====== ZONES DATA ======
+	u16: zone map X (***optional)
+	u16: zone map Y (***optional)
+u16: zone ID
+u16: discovered?
+00 00
+	IF DISCOVERED:
+	u16: ??
+	u16: ??
+	u16: ??
+	w * h * {x, y, z}: tiles
+	01 00
+u16: num. of hotspots
+n * {enabled, args}
+	IF DISCOVERED:
+	u16: num. of ?
+	n * {34 bytes}
+u16: number of actions
+n * {u16}: action disabled
+
+====== GAME DATA ======
+u16: num. of inventory items
+n * {u16}: inventory
+u16: current zone ID
+05 00
+04 00
+u16: weapon selected
+u16: HERO coord x (pixels)
+u16: HERO coord y (pixels)
+01 00
+01 00
+32 00
+i32: game timer countdown (seconds)
+10 00
+u16: weapon stats?
+u16: weapon stats? 
+============== END

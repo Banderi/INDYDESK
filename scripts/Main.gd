@@ -93,13 +93,13 @@ func _process(_delta):
 	Cursor.cursor_setting_loop()
 	
 	$UI/Label2.text = "fade: %s\n" % [Game.FADE.modulate.a]
+	
+	# audio monitoring tests
 	$UI/Label3.text = str(Sounds.SOUND_IMMEDIATE_STREAM.playing)
 	var bus_idx = AudioServer.get_bus_index("Master")
 	var audiocapture = AudioServer.get_bus_effect(0,0) as AudioEffectCapture
-#	var frames = audiocapture.get_buffer(10)
 	var frames = audiocapture.get_buffer(audiocapture.get_frames_available())
 	if frames.size() != 0:
-#		print(frames)
 		$UI/Label3/Bars/L.rect_size.y = 10 + abs(frames[0].x) * 1000.0
 		$UI/Label3/Bars/R.rect_size.y = 10 + abs(frames[0].y) * 1000.0
 	else:

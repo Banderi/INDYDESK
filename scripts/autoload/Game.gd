@@ -1384,14 +1384,7 @@ func speech_bubble(tile, text):
 	UI_ROOT.add_child(SPEECH_PLAYING)
 	SPEECH_PLAYING.set_text(text)
 func play_sound(sound_id, from = 0.0):
-#	Sounds.unlock()
-#	var time_begin = OS.get_ticks_usec()
-#	var time_delay = AudioServer.get_time_to_next_mix() + AudioServer.get_output_latency()
-#	print(time_delay)
-	
 	Sounds.play_sound(Game.CONST_DATA.sounds[sound_id], null, 1.0, "Master", 0.0)
-#	Sounds.play_sound_immediate(Game.CONST_DATA.sounds[sound_id], 1.0, "Master", 0.0, from + max(time_delay,0))
-#	Sounds.play_sound_immediate(Game.CONST_DATA.sounds[sound_id], 1.0, "Master")
 
 # Game world data
 const GAME_DATA_DUMMY = {
@@ -1597,17 +1590,18 @@ func clear_inventory():
 		n.queue_free()
 func equip_item(tile_id):
 	if !(tile_id in CONST_DATA.weapons):
-#		play_sound(7)
 		play_sound(8)
-#		print(2)
-#		Sounds.SOUND_IMMEDIATE_STREAM.play()
 		return false
+	else:
+		play_sound(0)
+		set_equipped_item(tile_id)
+		return true
+func set_equipped_item(tile_id):
 	if tile_id != null:
 		INV_SELECTED.item_node.tile_id = tile_id
 		INV_SELECTED.show()
 	else:
 		INV_SELECTED.hide()
-	return true
 func refresh_inventory_display():
 	clear_inventory()
 	for tile_id in GAME_DATA.inventory:
@@ -1617,6 +1611,6 @@ func refresh_inventory_display():
 	
 	# equipped weapon
 	if GAME_DATA.selected_weapon != 65535:
-		equip_item(CONST_DATA.weapons[GAME_DATA.selected_weapon])
+		set_equipped_item(CONST_DATA.weapons[GAME_DATA.selected_weapon])
 	else:
-		equip_item(null)
+		set_equipped_item(null)

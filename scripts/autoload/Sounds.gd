@@ -1,5 +1,5 @@
 extends Node
-# ANTIMONY 'Sounds' by Banderi --- v0.9
+# ANTIMONY 'Sounds' by Banderi --- v1.0
 
 #onready var SOUND3D_SCN = load("res://scenes/FX/Sound3D.tscn")
 onready var SOUND_SCN = load("res://scenes/FX/Sound.tscn")
@@ -36,53 +36,6 @@ func play_sound_immediate(sound: String, volume : float, bus : String, pitch_rnd
 		SOUND_IMMEDIATE_STREAM.stream = load(str("res://audio/sfx/",sound))
 		SOUND_IMMEDIATE_STREAM.play(from)
 
-func lock():
-	if !IS_LOCKED:
-		AudioServer.lock()
-		IS_LOCKED = true
-		print("LOCKED")
-func unlock():
-	if IS_LOCKED:
-		AudioServer.unlock()
-		IS_LOCKED = false
-#		var time_since = AudioServer.get_time_since_last_mix()
-#		var time_until = AudioServer.get_time_to_next_mix()
-#		var time_latency = AudioServer.get_output_latency()
-#		var time_diff = time_since + time_until
-#		print("UNLOCKED: %s %f %f"%[time_since, time_until, time_diff])
-		print("UNLOCKED")
-
-func _process(delta):
-	
-	
-#	var time_since = AudioServer.get_time_since_last_mix()
-#	var time_until = AudioServer.get_time_to_next_mix()
-#	var time_delay = AudioServer.get_output_latency()
-#	print("UNLOCKED: %s %f %f"%[AudioServer.get_time_to_next_mix(), AudioServer.get_time_to_next_mix(), AudioServer.get_time_to_next_mix()])
-	
-	var time_since = AudioServer.get_time_since_last_mix()
-	var time_until = AudioServer.get_time_to_next_mix()
-	var time_latency = AudioServer.get_output_latency()
-	var time_diff = time_since + time_until
-#	print("UNLOCKED: %s %f %f"%[time_since, time_until, time_diff])
-
-#	if time_until > 0:
-#		print(time_until)
-
-#	if !SOUND_IMMEDIATE_STREAM.playing:
-#		if !IS_LOCKED:
-#			print(time_until)
-#		lock()
-#	if !IS_LOCKED:
-#		lock()
-#	var time_begin = OS.get_ticks_usec()
-#	var time_delay = AudioServer.get_time_to_next_mix() + AudioServer.get_output_latency()
-##	if time_delay <= 0:
-##		print(time_delay)
-##		AudioServer.lock()
-#	print(AudioServer.get_time_since_last_mix())
-#	AudioServer.unlock()
-	
 func play_sound(sound: String, position, volume : float, bus : String, pitch_rnd = 0.0):
 	var node = null
 	if ".MID" in sound:
@@ -90,7 +43,6 @@ func play_sound(sound: String, position, volume : float, bus : String, pitch_rnd
 		node.volume_db = linear2db(volume - 0.65)
 		node.bus = bus
 		node.file = str("res://audio/sfx/",sound)
-#		node.soundfont = load("res://audio/WinGroove.sf2")
 	else:
 		if position == null:
 			node = SOUND_SCN.instance()

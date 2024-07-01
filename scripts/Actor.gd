@@ -24,7 +24,7 @@ var selected_weapon = 1
 func do_attack():
 	if state == States.idle:
 		state = States.attack
-		var weapon_data = Game.DATA.characters[selected_weapon] 
+		var weapon_data = Game.CONST_DATA.characters[selected_weapon] 
 		Game.play_sound(weapon_data.weapon_refid)
 
 # HP
@@ -36,6 +36,11 @@ var USE_GRID = true
 onready var tile_current = Game.to_tile(position)
 onready var tile_fractional = Game.to_tile(position, false)
 onready var tile_target = Vector2(floor(tile_current.x), floor(tile_current.y))
+func teleport(tile):
+	tile_current = tile
+	tile_fractional = tile
+	tile_target = tile
+	position = Game.to_vector(tile)
 
 var last_bumped_tile = null # spam prevention
 func bump_into(bumped_tile):
@@ -189,7 +194,7 @@ func _process(delta):
 		States.walk_grid, States.walk_grid_centered:
 			play_anim("walk")
 		States.attack:
-			var weapon_data = Game.DATA.characters[selected_weapon]
+			var weapon_data = Game.CONST_DATA.characters[selected_weapon]
 			play_anim(weapon_data.name)
 			get_node("Attack" + last_direction).play(weapon_data.name + last_direction)
 

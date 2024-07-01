@@ -26,8 +26,8 @@ n * {enabled, args}
 	IF DISCOVERED:
 	u16: num. of ?
 	n * {34 bytes}
-u16: number of actions
-n * {u16}: action disabled
+	u16: number of actions
+	n * {u16}: action disabled
 
 ====== GAME DATA ======
 u16: num. of inventory items

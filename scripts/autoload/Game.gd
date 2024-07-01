@@ -313,7 +313,7 @@ func value_list_flags(value, enums):
 
 # Game data loading
 var GLOBAL_VAR = null
-var DATA = {
+var CONST_DATA = {
 	"splash": null,
 	"sounds": [], # 0 K:\GAME\TEST\SCHWING.WAV
 #					1 C:\INDY\MASTER\PUSH.WAV
@@ -357,8 +357,8 @@ func load_daw(file_path):
 		Log.error(null,r,"could not load DAW file!")
 	
 	FILE.seek(4)
-	DATA["VERS"] = FILE.get_32()
-	Log.generic(null,"'VERS' at 0x00000000: %d" % [DATA["VERS"]])
+	CONST_DATA["VERS"] = FILE.get_32()
+	Log.generic(null,"'VERS' at 0x00000000: %d" % [CONST_DATA["VERS"]])
 	
 	while !FILE.end_reached():
 		var offset = FILE.get_position()
@@ -368,17 +368,17 @@ func load_daw(file_path):
 		Log.generic(null,"'%s' at 0x%08X: %d bytes" % [s_name, offset, s_size])
 		match s_name:
 			"STUP": # splash screen
-				DATA.splash = FILE.get_buffer(s_size)
+				CONST_DATA.splash = FILE.get_buffer(s_size)
 			"SNDS": # sound files namess
 				var _unk_num = FILE.get_16()
 				while FILE.get_position() < end_of_section:
 					var subs_size = FILE.get_16()
 					var original_path = FILE.get_buffer(subs_size).get_string_from_ascii()
 					var snd_filename = Array(original_path.split("\\")).pop_back()
-					DATA.sounds.push_back(snd_filename)
+					CONST_DATA.sounds.push_back(snd_filename)
 			"TILE": # tile bitmaps
 				while FILE.get_position() < end_of_section:
-					DATA.tiles.push_back({
+					CONST_DATA.tiles.push_back({
 						"name": "",
 						"flags": FILE.get_32(),
 						"bmp": FILE.get_buffer(1024)
@@ -398,7 +398,7 @@ func load_daw(file_path):
 							signed_u16(FILE.get_16()),
 							signed_u16(FILE.get_16()),
 						])
-					DATA.zones.push_back({
+					CONST_DATA.zones.push_back({
 						"name": "",
 						"width": z_width,
 						"height": z_height,
@@ -423,43 +423,43 @@ func load_daw(file_path):
 					if FILE.get_position() > end_of_section:
 						break
 			"ZAUX": # monsters, required items
-				for i in DATA.zones.size():
+				for i in CONST_DATA.zones.size():
 					assert_marker("IZAX")
 					var _subs_size = FILE.get_32()
-					DATA.zones[i].unkn_zaux = FILE.get_16() # seems to correlate with monsters present in zone
+					CONST_DATA.zones[i].unkn_zaux = FILE.get_16() # seems to correlate with monsters present in zone
 					for _i in FILE.get_16():
-						DATA.zones[i].monsters.push_back({
+						CONST_DATA.zones[i].monsters.push_back({
 							"id": FILE.get_16(),
 							"x": signed_u16(FILE.get_16()),
 							"y": signed_u16(FILE.get_16()),
 						})
 					for _i in FILE.get_16():
-						DATA.zones[i].required_items.push_back(FILE.get_16())
+						CONST_DATA.zones[i].required_items.push_back(FILE.get_16())
 			"ZAX2": # reward items
-				for i in DATA.zones.size():
+				for i in CONST_DATA.zones.size():
 					assert_marker("IZX2")
 					var _subs_size = FILE.get_32()
 					for _i in FILE.get_16():
-						DATA.zones[i].reward_items.push_back(FILE.get_16())
+						CONST_DATA.zones[i].reward_items.push_back(FILE.get_16())
 			"ZAX3": # npcs
-				for i in DATA.zones.size():
+				for i in CONST_DATA.zones.size():
 					assert_marker("IZX3")
 					var _subs_size = FILE.get_32()
 					for _i in FILE.get_16():
-						DATA.zones[i].npcs.push_back(FILE.get_16())
+						CONST_DATA.zones[i].npcs.push_back(FILE.get_16())
 			"ZAX4": # ??? ALL of these are... [1, 0] apparently?
-				for i in DATA.zones.size():
+				for i in CONST_DATA.zones.size():
 					assert_marker("IZX4")
 					var subs_size = FILE.get_32()
 					var subs_data = FILE.get_buffer(subs_size)
-					DATA.zones[i].izx4.push_back(subs_data)
+					CONST_DATA.zones[i].izx4.push_back(subs_data)
 			"HTSP": # hotspots (triggers)
 				while FILE.get_position() < end_of_section:
 					var zone_id = FILE.get_16()
 					if zone_id == 65535:
 						break
 					for _i in FILE.get_16():
-						DATA.zones[zone_id].hotspots.push_back({
+						CONST_DATA.zones[zone_id].hotspots.push_back({
 							"type": FILE.get_32(),
 							"x": FILE.get_16(),
 							"y": FILE.get_16(),
@@ -509,7 +509,7 @@ func load_daw(file_path):
 							var text_length = FILE.get_16()
 							instruction["text"] = ansi_to_string(FILE.get_buffer(text_length))
 							action_data.instructions.push_back(instruction)
-						DATA.zones[zone_id].actions.push_back(action_data)
+						CONST_DATA.zones[zone_id].actions.push_back(action_data)
 			"PUZ2": # puzzles
 				while FILE.get_position() < end_of_section:
 					var zone_id = FILE.get_16()
@@ -517,7 +517,7 @@ func load_daw(file_path):
 						break
 					assert_marker("IPUZ")
 					var subs_size = FILE.get_32()
-					DATA.puzzles.push_back({
+					CONST_DATA.puzzles.push_back({
 						"name": "",
 						"type": FILE.get_32(),
 						"item1_class": FILE.get_32(),
@@ -526,7 +526,7 @@ func load_daw(file_path):
 						"item1": FILE.get_16(),
 						"item2": FILE.get_16()
 					})
-					DATA.zones[zone_id].puzzle = DATA.puzzles.size() - 1
+					CONST_DATA.zones[zone_id].puzzle = CONST_DATA.puzzles.size() - 1
 			"CHAR": # characters
 				while FILE.get_position() < end_of_section:
 					var char_id = FILE.get_16()
@@ -582,36 +582,36 @@ func load_daw(file_path):
 						data.sprites1[f] = signed_u16(data.sprites1[f])
 					for f in 16:
 						data.sprites2[f] = signed_u16(data.sprites2[f])
-					DATA.characters[char_id] = data
+					CONST_DATA.characters[char_id] = data
 			"CHWP": # weapons
 				while FILE.get_position() < end_of_section:
 					var char_id = FILE.get_16()
 					if char_id == 65535:
 						break
-					DATA.characters[char_id].weapon_refid = FILE.get_16() # id of weapon "character" if monster, or id of attack sound if weapon
-					DATA.characters[char_id].weapon_health = FILE.get_16()
+					CONST_DATA.characters[char_id].weapon_refid = FILE.get_16() # id of weapon "character" if monster, or id of attack sound if weapon
+					CONST_DATA.characters[char_id].weapon_health = FILE.get_16()
 			"CAUX": # monster damage
 				while FILE.get_position() < end_of_section:
 					var char_id = FILE.get_16()
 					if char_id == 65535:
 						break
-					DATA.characters[char_id].damage = FILE.get_16()
+					CONST_DATA.characters[char_id].damage = FILE.get_16()
 			"TNAM": # tiles names
 				while FILE.get_position() < end_of_section:
 					var tile_id = FILE.get_16()
 					if tile_id == 65535:
 						break
-					DATA.tiles[tile_id].name = FILE.get_buffer(16).get_string_from_ascii()
+					CONST_DATA.tiles[tile_id].name = FILE.get_buffer(16).get_string_from_ascii()
 			"ZNAM": # zones names
 				while FILE.get_position() < end_of_section:
 					var zone_id = FILE.get_16()
 					if zone_id == 65535:
 						break
-					DATA.zones[zone_id].name = FILE.get_buffer(16).get_string_from_ascii()
+					CONST_DATA.zones[zone_id].name = FILE.get_buffer(16).get_string_from_ascii()
 			"PNAM": # puzzles names
 				var num_subs = FILE.get_16()
 				for puzzle_id in num_subs:
-					DATA.puzzles[puzzle_id].name = FILE.get_buffer(16).get_string_from_ascii()
+					CONST_DATA.puzzles[puzzle_id].name = FILE.get_buffer(16).get_string_from_ascii()
 					if FILE.get_position() > end_of_section:
 						break
 			"ANAM": # action scripts names
@@ -623,30 +623,30 @@ func load_daw(file_path):
 						var action_id = FILE.get_16()
 						if action_id == 65535:
 							break
-						DATA.zones[zone_id].actions[action_id].name = FILE.get_buffer(16).get_string_from_ascii()
+						CONST_DATA.zones[zone_id].actions[action_id].name = FILE.get_buffer(16).get_string_from_ascii()
 			"ENDF":
 				assert(s_size == 0)
 	Log.generic(null,"DAW file loaded sucessfully!")
 	
 	var h = 0
-	for z in DATA.zones.size():
-		var zone = DATA.zones[z]
+	for z in CONST_DATA.zones.size():
+		var zone = CONST_DATA.zones[z]
 		for hotspot in zone.hotspots:
 			h += 1
 			if h == 449:
 				pass
 	print("hotspots:", h)
 		
-#	for p in DATA:
-#		if DATA[p] is Array || DATA[p] is Dictionary:
-#			print(p, ": ", DATA[p].size())
+#	for p in CONST_DATA:
+#		if CONST_DATA[p] is Array || CONST_DATA[p] is Dictionary:
+#			print(p, ": ", CONST_DATA[p].size())
 	
 	return
 	
-	for z in DATA.zones.size():
+	for z in CONST_DATA.zones.size():
 #	for z in [120]:
 #	for z in [333]:
-		var zone = DATA.zones[z]
+		var zone = CONST_DATA.zones[z]
 		for a in zone.actions.size():
 			var action = zone.actions[a]
 			
@@ -701,7 +701,7 @@ func texture_from_data(data, width, height, palette):
 func save_texture(texture : ImageTexture, path):
 	return texture.get_data().save_png(path)
 func load_splashscreen(splash_screen):
-	splash_screen.texture = texture_from_data(DATA.splash, 288, 288, PALETTE_INDY)
+	splash_screen.texture = texture_from_data(CONST_DATA.splash, 288, 288, PALETTE_INDY)
 	Log.generic(null,"Splash-screen loaded!")
 
 # Sprites
@@ -713,7 +713,7 @@ func get_sprite(i):
 	return load("res://assets/indy/tile"+str(i)+".png")
 func generate_tileset(tile_set : TileSet):
 	tile_set.clear()
-	for i in DATA.tiles.size():
+	for i in CONST_DATA.tiles.size():
 		tile_set.create_tile(i)
 		tile_set.tile_set_texture(i,get_sprite(i))
 	Log.generic(null,"Tileset generated sucessfully!")
@@ -730,8 +730,8 @@ func sprite_add_4way_anim(spritesheet : SpriteFrames, anim_name : String, frames
 	sprite_add_anim(spritesheet, str(anim_name,"_W"), frames_list, frames_W)
 	sprite_add_anim(spritesheet, str(anim_name,"_E"), frames_list, frames_E)
 func generate_spritesheets():
-	for char_id in DATA.characters:
-		var character = DATA.characters[char_id]
+	for char_id in CONST_DATA.characters:
+		var character = CONST_DATA.characters[char_id]
 		var c_name = character.name
 		var spritesheet = character.sprites
 		match character.type:
@@ -767,13 +767,13 @@ func to_tile(vector, rounded = true):
 	return tile
 func to_vector(tile):
 	return (tile * 32.0) + Vector2(16,16)
-func get_tile_data(tile_id):
-	return DATA.tiles[tile_id]
+func get_tile_params(tile_id):
+	return CONST_DATA.tiles[tile_id]
 func get_tile_flags(tile_id):
 	if tile_id == -1:
 		return 0
 	else:
-		return DATA.tiles[tile_id].flags
+		return CONST_DATA.tiles[tile_id].flags
 func is_tile_obstructed(tile):
 	var flood_id = FLOOR_TILES.get_cellv(tile)
 	if flood_id == -1:
@@ -795,9 +795,7 @@ func get_tile_at(tile, layer, relative = true):
 		tile_relative = to_zone_relative(tile)
 	else:
 		tile = to_tile_absolute(tile_relative)
-	
-	var zone_data = DATA.zones[CURRENT_ZONE]
-	return zone_data.tiles[tile_relative.y * zone_data.width + tile_relative.x][layer]
+	return GAME_DATA.zones[CURRENT_ZONE].tiles[tile_relative.y * CONST_DATA.zones[CURRENT_ZONE].width + tile_relative.x][layer]
 func set_tile_at(tile, layer, tile_id, relative = true, do_not_update_tilemap = false):
 	var tile_relative = tile
 	if !relative:
@@ -805,8 +803,7 @@ func set_tile_at(tile, layer, tile_id, relative = true, do_not_update_tilemap = 
 	else:
 		tile = to_tile_absolute(tile_relative)
 	
-	var zone_data = DATA.zones[CURRENT_ZONE]
-	var tile_layers = zone_data.tiles[tile_relative.y * zone_data.width + tile_relative.x]
+	var tile_layers = GAME_DATA.zones[CURRENT_ZONE].tiles[tile_relative.y * CONST_DATA.zones[CURRENT_ZONE].width + tile_relative.x]
 	if !do_not_update_tilemap:
 		match layer:
 			0:
@@ -829,10 +826,9 @@ func unload_all_zones():
 		LOADED_ZONES[zone_id].loaded = false
 func unload_zone(zone_id):
 	if zone_id in LOADED_ZONES:
-		var zone_data = DATA.zones[zone_id]
 		var map_origin = LOADED_ZONES[zone_id].origin
-		for y in zone_data.height:
-			for x in zone_data.width:
+		for y in CONST_DATA.zones[zone_id].height:
+			for x in CONST_DATA.zones[zone_id].width:
 				var world_tile_coords = Vector2(x, y) + map_origin
 				FLOOR_TILES.set_cellv(world_tile_coords, -1)
 				WALL_TILES.set_cellv(world_tile_coords, -1)
@@ -843,11 +839,21 @@ func unload_zone(zone_id):
 		LOADED_ZONES[zone_id].loaded = false
 	else:
 		Log.generic(null,"Can not unload zone %d because it wasn't loaded!" % [zone_id])
+func discover_zone(zone_id):
+	GAME_DATA.zones[zone_id].tiles = CONST_DATA.zones[zone_id].tiles.duplicate(true)
+	GAME_DATA.zones[zone_id].discoveed = true
 func load_zone(zone_id, map_origin):
-	var zone_data = DATA.zones[zone_id]
-	for y in zone_data.height:
-		for x in zone_data.width:
-			var tile_layers = zone_data.tiles[y * zone_data.width + x]
+	if !(zone_id in GAME_DATA.zones):
+		return null
+	if !GAME_DATA.zones[zone_id].discovered:
+		discover_zone(zone_id)
+	var tiles = GAME_DATA.zones[zone_id].tiles
+	
+	var width = CONST_DATA.zones[zone_id].width
+	var height = CONST_DATA.zones[zone_id].height
+	for y in height:
+		for x in width:
+			var tile_layers = tiles[y * width + x]
 			var world_tile_coords = Vector2(x, y) + map_origin
 			
 			# for object (wall) tiles, only set the tilemap for non-moveable walls
@@ -875,7 +881,7 @@ func load_zone(zone_id, map_origin):
 			ROOF_TILES.set_cellv(world_tile_coords, tile_layers[2])
 			
 			# save hotspots (triggers) into the lookup
-			for hotspot in zone_data.hotspots:
+			for hotspot in CONST_DATA.zones[zone_id].hotspots:
 				if hotspot.x == x && hotspot.y == y:
 					TRIGGERS_LOOKUP[world_tile_coords] = hotspot
 	
@@ -886,7 +892,7 @@ func load_zone(zone_id, map_origin):
 	update_current_zone()
 	JUST_ENTERED_ZONE = true
 	Log.generic(null,"Loaded zone: %d at %s" % [zone_id, map_origin])
-	return zone_data
+	return CONST_DATA.zones[zone_id]
 
 var ROOMS_STACK = []
 var CURRENT_ZONE = -1
@@ -897,8 +903,7 @@ func update_current_zone():
 	for zone_id in LOADED_ZONES:
 		if LOADED_ZONES[zone_id].loaded:
 			var map_origin = LOADED_ZONES[zone_id].origin
-			var zone_data = DATA.zones[zone_id]
-			if hero_tile >= map_origin && hero_tile <= map_origin + Vector2(zone_data.width, zone_data.height):
+			if hero_tile >= map_origin && hero_tile <= map_origin + Vector2(CONST_DATA.zones[zone_id].width, CONST_DATA.zones[zone_id].height):
 				CURRENT_ZONE = zone_id
 				return
 	CURRENT_ZONE = -1
@@ -907,8 +912,7 @@ func room_enter(zone_id):
 	if zone_id in LOADED_ZONES: # we already calculated the map origin previously
 		map_origin = LOADED_ZONES[zone_id].origin
 	else: # calculate origin using the player position and the door_out trigger tile
-		var zone_data = DATA.zones[zone_id]
-		for hotspot in zone_data.hotspots:
+		for hotspot in CONST_DATA.zones[zone_id].hotspots:
 			if hotspot.type == Hotspots.door_out:
 				map_origin = HERO_ACTOR.tile_current - Vector2(hotspot.x, hotspot.y)
 	
@@ -926,8 +930,7 @@ func room_exit():
 	if prev_zone_id in LOADED_ZONES: # we already calculated the map origin previously
 		map_origin = LOADED_ZONES[prev_zone_id].origin
 	else: # calculate origin using the player position and the door_out trigger tile
-		var zone_data = DATA.zones[prev_zone_id]
-		for hotspot in zone_data.hotspots:
+		for hotspot in CONST_DATA.zones[prev_zone_id].hotspots:
 			if hotspot.type == Hotspots.door_in && hotspot.args == CURRENT_ZONE:
 				map_origin = HERO_ACTOR.tile_current - Vector2(hotspot.x, hotspot.y)
 	
@@ -954,9 +957,10 @@ func _process(delta):
 	
 	# actions
 	var action_was_executed = false
-	for a in DATA.zones[CURRENT_ZONE].actions.size():
-		var action = DATA.zones[CURRENT_ZONE].actions[a]
-		if do_action_script(action):
+	for a in CONST_DATA.zones[CURRENT_ZONE].actions.size():
+		var action = CONST_DATA.zones[CURRENT_ZONE].actions[a]
+		var action_disabled = GAME_DATA.zones[CURRENT_ZONE].actions[a]
+		if !action_disabled && do_action_script(action):
 			print(a,":",action.name)
 			action_was_executed = true
 	JUST_ENTERED_ZONE = false
@@ -1104,13 +1108,13 @@ func evaluate_action_condition(condition, action):
 		opcodes.standing_on: # Check if hero is at `args[0]`x`args[1]` and the floor tile is `args[2]`
 			return HERO_ACTOR.tile_current == to_tile_absolute(Vector2(condition.args[0], condition.args[1])) && get_tile_at(HERO_ACTOR.tile_current, 0, false) == condition.args[2]
 		opcodes.variable_is: # Current zone's `variable` value is equal to `args[0]`
-			return DATA.zones[CURRENT_ZONE].variable == condition.args[0]
+			return GAME_DATA.zones[CURRENT_ZONE].variable == condition.args[0]
 		opcodes.random_is: # Current zone's `random` value is equal to `args[0]`
-			return DATA.zones[CURRENT_ZONE].random == condition.args[0]
+			return GAME_DATA.zones[CURRENT_ZONE].random == condition.args[0]
 		opcodes.random_is_greater_than: # Current zone's `random` value is greater than `args[0]`
-			return DATA.zones[CURRENT_ZONE].random > condition.args[0]
+			return GAME_DATA.zones[CURRENT_ZONE].random > condition.args[0]
 		opcodes.random_is_less_than: # Current zone's `random` value is less than `args[0]`
-			return DATA.zones[CURRENT_ZONE].random < condition.args[0]
+			return GAME_DATA.zones[CURRENT_ZONE].random < condition.args[0]
 		opcodes.enter_by_vehicle:
 			return JUST_ENTERED_ZONE_BY_VEHICLE
 		opcodes.tile_is, opcodes.tile_var_is: # Check if tile at `args[0]`x`args[1]`x`args[2]` is equal to `args[3]`
@@ -1129,9 +1133,9 @@ func evaluate_action_condition(condition, action):
 			  # INDY: Used in map 150, also in early maps in Indy with leaked text "Pick"
 			pass
 		opcodes.game_not_completed:
-			return !IS_WON_GAME
+			return !GAME_DATA.is_won
 		opcodes.game_is_completed:
-			return IS_WON_GAME
+			return GAME_DATA.is_won
 		opcodes.no_item_placed: # Returns true if the user did not place an item
 			  # INDY: game_not_completed: # Never used
 			pass
@@ -1163,9 +1167,9 @@ func evaluate_action_condition(condition, action):
 		opcodes.has_any_required_item: # Determines if inventory contains any of the required items needed for current zone
 			pass
 		opcodes.variable_is_not: # Current zone's `variable` value is not equal to `args[0]`
-			return DATA.zones[CURRENT_ZONE].variable != condition.args[0]
+			return GAME_DATA.zones[CURRENT_ZONE].variable != condition.args[0]
 		opcodes.random_is_not: # Current zone's `random` value is not equal to `args[0]`
-			return DATA.zones[CURRENT_ZONE].random != condition.args[0]
+			return GAME_DATA.zones[CURRENT_ZONE].random != condition.args[0]
 		opcodes.global_var_is_not: # Current zone's `global_var` value is not equal to `args[0]`
 			return GLOBAL_VAR != condition.args[0]
 		opcodes.exp_greater_than: # (games_won_is_greater_than): # True, if total game experience is greater than `args[0]`
@@ -1297,12 +1301,12 @@ func perform_action_instruction(instruction, action):
 			return # 0, 0, 0, 0
 		opcodes.roll_random: # Roll between 1 and `args[0]` and set into map `random` value
 			randomize()
-			DATA.zones[CURRENT_ZONE].random = (randi() % instruction.args[0]) + 1
-			print("set rand to ",DATA.zones[CURRENT_ZONE].random)
+			GAME_DATA.zones[CURRENT_ZONE].random = (randi() % instruction.args[0]) + 1
+			print("set rand to ",GAME_DATA.zones[CURRENT_ZONE].random)
 		opcodes.set_variable: # Set current zone's `variable` value to a `args[0]`
-			DATA.zones[CURRENT_ZONE].variable = instruction.args[0]
+			GAME_DATA.zones[CURRENT_ZONE].variable = instruction.args[0]
 		opcodes.incr_variable: # Add `args[0]` to current zone's `variable` value
-			DATA.zones[CURRENT_ZONE].variable += instruction.args[0]
+			GAME_DATA.zones[CURRENT_ZONE].variable += instruction.args[0]
 		opcodes.hide_hero: # (release_camera?)
 			pass # 7, 14, 0, 57, 0
 		opcodes.show_hero: # (lock_camera?)
@@ -1346,7 +1350,7 @@ func perform_action_instruction(instruction, action):
 		opcodes.incr_global_var: # Add `args[0]` to GLOBAL_VAR
 			GLOBAL_VAR += instruction.args[0]
 		opcodes.set_random: # Set current zone's `random` value to a `args[0]`
-			DATA.zones[CURRENT_ZONE].random = instruction.args[0]
+			GAME_DATA.zones[CURRENT_ZONE].random = instruction.args[0]
 		opcodes.add_health: # Increase hero's health by `args[0]`. New health is capped at hero's max health (0x300). Argument 0 can also be negative to subtract from hero's health
 			HERO_ACTOR.health += instruction.args[0]
 func pause_game(ticks = null):
@@ -1376,11 +1380,11 @@ func speech_bubble(tile, text):
 	UI_ROOT.add_child(SPEECH_PLAYING)
 	SPEECH_PLAYING.set_text(text)
 func play_sound(sound_id):
-	Sounds.play_sound(Game.DATA.sounds[sound_id],null,1.0,"Master")
+	Sounds.play_sound(Game.CONST_DATA.sounds[sound_id],null,1.0,"Master")
 
 # Game world data
-var IS_WON_GAME = false
-var GAME_DATA_DUMMY = {
+const GAME_DATA_DUMMY = {
+	"is_won": false,
 	"seed_unkn": null,
 	"indoor_zones_unk": [],
 	"zones": {},
@@ -1400,19 +1404,26 @@ var GAME_DATA_DUMMY = {
 	"weapon_stats_unk1": null,
 	"weapon_stats_unk2": null,
 }
-var GAME_DATA = GAME_DATA_DUMMY.duplicate()
+var GAME_DATA = {}
+func clear_game_data():
+	GAME_DATA = GAME_DATA_DUMMY.duplicate(true)
+	unload_all_zones()
 func is_in_game():
 	return CURRENT_ZONE != -1
 func new_game(): # TODO
-	IS_WON_GAME = false
-#	FADE.modulate.a = 1.0
-	load_zone(120, Vector2())
+	yield(fadeout(),"completed")
+	clear_game_data()
+#	generate_new_game() # TODO
 #	Game.play_sound(15)
-	HERO_ACTOR.position = to_vector(Vector2(11, 5))
+	load_zone(120, Vector2())
+	HERO_ACTOR.teleport(Vector2(11, 5))
+	refresh_inventory_display()
 	yield(fadein(),"completed")
 
 func load_game(file_path):
-	IS_WON_GAME = false
+	Cursor.drag(null)
+	clear_inventory()
+	yield(fadeout(),"completed")
 
 	# open save file!
 	var r = FILE.open(file_path, File.READ)
@@ -1420,7 +1431,7 @@ func load_game(file_path):
 		Log.error(null,r,"could not load WLD file!")
 	
 	# flush game data
-	GAME_DATA = GAME_DATA_DUMMY.duplicate()
+	clear_game_data()
 	
 #	assert_in_file(SAV, "INDYSAV", 7)
 	var file_type = FILE.get_buffer(7).get_string_from_ascii()
@@ -1479,7 +1490,8 @@ func load_game(file_path):
 		var unk2 = null
 		var unk3 = null
 		var unk4 = null
-		var unk5 = null
+		
+		var unk5 = null # 01 00
 		var zone_tiles = []
 		var hotspots = []
 		var unk_32bytes = []
@@ -1490,7 +1502,7 @@ func load_game(file_path):
 			unk2 = FILE.get_16()
 			unk3 = FILE.get_16()
 			unk4 = FILE.get_16()
-			var total_tiles = DATA.zones[zone_id].width * DATA.zones[zone_id].height
+			var total_tiles = CONST_DATA.zones[zone_id].width * CONST_DATA.zones[zone_id].height
 			for _t in total_tiles:
 				zone_tiles.push_back([
 					signed_u16(FILE.get_16()),
@@ -1531,6 +1543,10 @@ func load_game(file_path):
 			"hotspots": hotspots,
 			"unk_32bytes": unk_32bytes,
 			"actions": actions,
+			
+			# TODO:
+			"random":0,
+			"variable":0,
 		}
 	
 	# game stats
@@ -1552,11 +1568,27 @@ func load_game(file_path):
 	
 	assert(FILE.get_position() == FILE.get_len())
 
-
+	refresh_inventory_display()
+	
+	load_zone(GAME_DATA.current_zone, Vector2())
+	HERO_ACTOR.teleport(to_tile(Vector2(GAME_DATA.hero_x_coord, GAME_DATA.hero_y_coord)) + LOADED_ZONES[GAME_DATA.current_zone].origin)
 	yield(fadein(),"completed")
 
-var INVENTORY = []
-func add_item():
+var INV_UI_LIST = null
+onready var INV_ITEM_SCN = load("res://scenes/InventoryItem.tscn")
+func add_item(tile_id):
 	pass
-func remove_item():
+func remove_item(inv_index):
 	pass
+func clear_inventory():
+	for n in INV_UI_LIST.get_children():
+		n.queue_free()
+func refresh_inventory_display():
+	for n in INV_UI_LIST.get_children():
+		n.queue_free()
+	for tile_id in GAME_DATA.inventory:
+		var item_node = INV_ITEM_SCN.instance() as TextureButton
+		item_node.texture_normal = get_sprite(tile_id)
+		item_node.set_item_name(CONST_DATA.tiles[tile_id].name)
+#		item_node.set_item_name(CONST_DATA.tiles[525].name)
+		INV_UI_LIST.add_child(item_node)

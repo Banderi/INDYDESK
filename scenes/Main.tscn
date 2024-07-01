@@ -1,4 +1,4 @@
-[gd_scene load_steps=19 format=2]
+[gd_scene load_steps=21 format=2]
 
 [ext_resource path="res://scripts/Main.gd" type="Script" id=1]
 [ext_resource path="res://assets/indy/tileset.tres" type="TileSet" id=2]
@@ -8,9 +8,11 @@
 [ext_resource path="res://scripts/Fade.gd" type="Script" id=6]
 [ext_resource path="res://scripts/Camera.gd" type="Script" id=7]
 [ext_resource path="res://assets/indy/tile72.png" type="Texture" id=8]
-[ext_resource path="res://scripts/WeaponDropSquare.gd" type="Script" id=9]
+[ext_resource path="res://scripts/SelectedItemDropArea.gd" type="Script" id=9]
 [ext_resource path="res://scenes/InventoryItem.tscn" type="PackedScene" id=10]
 [ext_resource path="res://scripts/DragItem.gd" type="Script" id=11]
+[ext_resource path="res://addons/midi/MidiPlayer.gd" type="Script" id=12]
+[ext_resource path="res://audio/sfx/NOGO.WAV" type="AudioStream" id=13]
 
 [sub_resource type="CanvasItemMaterial" id=4]
 blend_mode = 1
@@ -167,6 +169,9 @@ anchor_bottom = 1.0
 mouse_filter = 2
 color = Color( 0, 0, 0, 1 )
 script = ExtResource( 6 )
+__meta__ = {
+"_edit_lock_": true
+}
 
 [node name="Button" type="Button" parent="UI"]
 anchor_left = 1.0
@@ -210,6 +215,42 @@ margin_bottom = 357.0
 custom_constants/line_spacing = -3
 custom_fonts/font = ExtResource( 3 )
 text = "test"
+
+[node name="Label3" type="Label" parent="UI"]
+visible = false
+margin_left = 602.0
+margin_top = 307.0
+margin_right = 766.0
+margin_bottom = 447.0
+custom_constants/line_spacing = -3
+custom_fonts/font = ExtResource( 3 )
+text = "test"
+
+[node name="Bars" type="ColorRect" parent="UI/Label3"]
+margin_left = 11.0
+margin_top = -11.0
+margin_right = 33.0
+margin_bottom = 217.0
+rect_rotation = 180.0
+color = Color( 0.34902, 0, 0, 1 )
+
+[node name="L" type="ColorRect" parent="UI/Label3/Bars"]
+anchor_left = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+margin_left = -10.0
+margin_top = 2.0
+margin_right = -2.0
+margin_bottom = -2.0
+color = Color( 0.00784314, 1, 0, 1 )
+
+[node name="R" type="ColorRect" parent="UI/Label3/Bars"]
+anchor_bottom = 1.0
+margin_left = 2.0
+margin_top = 2.0
+margin_right = 10.0
+margin_bottom = -2.0
+color = Color( 0.00784314, 1, 0, 1 )
 
 [node name="FPS" type="Label" parent="UI"]
 anchor_left = 0.5
@@ -337,7 +378,7 @@ margin_bottom = 96.0
 rect_min_size = Vector2( 16, 16 )
 texture = SubResource( 2 )
 
-[node name="Weapon" type="ColorRect" parent="UI/SIDE"]
+[node name="Selected" type="ColorRect" parent="UI/SIDE"]
 margin_left = 56.0
 margin_top = 240.0
 margin_right = 92.0
@@ -345,7 +386,7 @@ margin_bottom = 276.0
 color = Color( 0.6, 0.6, 0.6, 0.117647 )
 script = ExtResource( 9 )
 
-[node name="InventoryItem" parent="UI/SIDE/Weapon" instance=ExtResource( 10 )]
+[node name="InventoryItem" parent="UI/SIDE/Selected" instance=ExtResource( 10 )]
 material = SubResource( 7 )
 anchor_left = 0.5
 anchor_top = 0.5
@@ -356,7 +397,7 @@ margin_top = -16.0
 margin_right = 16.0
 margin_bottom = 16.0
 
-[node name="TextureRect" type="TextureRect" parent="UI/SIDE/Weapon"]
+[node name="TextureRect" type="TextureRect" parent="UI/SIDE/Selected"]
 visible = false
 anchor_left = 0.5
 anchor_top = 0.5
@@ -368,7 +409,7 @@ margin_right = 16.0
 margin_bottom = 16.0
 texture = ExtResource( 8 )
 
-[node name="ColorRect" type="ColorRect" parent="UI/SIDE/Weapon"]
+[node name="ColorRect" type="ColorRect" parent="UI/SIDE/Selected"]
 visible = false
 anchor_left = 0.5
 anchor_top = 0.5
@@ -385,6 +426,13 @@ margin_right = 40.0
 margin_bottom = 40.0
 mouse_filter = 2
 script = ExtResource( 11 )
+
+[node name="AudioStreamPlayer" type="AudioStreamPlayer" parent="."]
+stream = ExtResource( 13 )
+
+[node name="MidiPlayer" type="Node" parent="."]
+script = ExtResource( 12 )
+soundfont = "res://audio/WinGroove.sf2"
 
 [connection signal="pressed" from="UI/Button" to="." method="_on_Button_pressed"]
 [connection signal="value_changed" from="UI/SpinBox" to="." method="_on_SpinBox_value_changed"]

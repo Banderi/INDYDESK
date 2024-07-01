@@ -65,8 +65,11 @@ func _ready():
 	Game.WALL_TILES = $Walls
 	Game.ROOF_TILES = $Ceiling
 	Game.INV_UI_LIST = $UI/SIDE/Inventory/VBoxContainer
+	Game.INV_SELECTED = $UI/SIDE/Selected
 	Cursor.backdrop = self
 	Cursor.drag_texture = $UI/DRAG
+	Sounds.SOUND_IMMEDIATE_STREAM = $AudioStreamPlayer
+	Sounds.SOUND_IMMEDIATE_MIDI = $MidiPlayer
 	$UI/Fade.modulate.a = 1.0
 	load_indy()
 	
@@ -90,6 +93,19 @@ func _process(_delta):
 	Cursor.cursor_setting_loop()
 	
 	$UI/Label2.text = "fade: %s\n" % [Game.FADE.modulate.a]
+	$UI/Label3.text = str(Sounds.SOUND_IMMEDIATE_STREAM.playing)
+	var bus_idx = AudioServer.get_bus_index("Master")
+	var audiocapture = AudioServer.get_bus_effect(0,0) as AudioEffectCapture
+#	var frames = audiocapture.get_buffer(10)
+	var frames = audiocapture.get_buffer(audiocapture.get_frames_available())
+	if frames.size() != 0:
+#		print(frames)
+		$UI/Label3/Bars/L.rect_size.y = 10 + abs(frames[0].x) * 1000.0
+		$UI/Label3/Bars/R.rect_size.y = 10 + abs(frames[0].y) * 1000.0
+	else:
+		$UI/Label3/Bars/L.rect_size.y = 10
+		$UI/Label3/Bars/R.rect_size.y = 10
+	
 	if !Game.is_in_game():
 		return
 	$UI/Label2.text += "current_zone: <%s> %s\n" % [Game.CURRENT_ZONE, Game.CONST_DATA.zones[Game.CURRENT_ZONE].name]

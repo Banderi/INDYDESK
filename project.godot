@@ -66,6 +66,10 @@ config/name="INDYDESK"
 run/main_scene="res://scenes/Main.tscn"
 config/icon="res://icon.png"
 
+[audio]
+
+output_latency=1
+
 [autoload]
 
 Log="*res://scripts/autoload/Log.gd"

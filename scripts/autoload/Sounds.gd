@@ -19,6 +19,70 @@ func set_volume(bus, value):
 	var bus_index = AudioServer.get_bus_index(bus)
 	AudioServer.set_bus_volume_db(bus_index, linear2db(value))
 
+var SOUND_IMMEDIATE_STREAM : AudioStreamPlayer = null
+var SOUND_IMMEDIATE_MIDI : MidiPlayer = null
+var IS_LOCKED = false
+func play_sound_immediate(sound: String, volume : float, bus : String, pitch_rnd : float = 0.0, from : float = 0.0):
+	if ".MID" in sound:
+		SOUND_IMMEDIATE_MIDI.volume_db = linear2db(volume - 0.65)
+		SOUND_IMMEDIATE_MIDI.bus = bus
+		SOUND_IMMEDIATE_MIDI.file = str("res://audio/sfx/",sound)
+		SOUND_IMMEDIATE_STREAM.play(from)
+	else:
+		SOUND_IMMEDIATE_STREAM.volume_db = linear2db(volume)
+		if pitch_rnd != 0.0:
+			SOUND_IMMEDIATE_STREAM.pitch_scale = rand_range(1.0 - pitch_rnd, 1.0 + pitch_rnd)
+		SOUND_IMMEDIATE_STREAM.bus = bus
+		SOUND_IMMEDIATE_STREAM.stream = load(str("res://audio/sfx/",sound))
+		SOUND_IMMEDIATE_STREAM.play(from)
+
+func lock():
+	if !IS_LOCKED:
+		AudioServer.lock()
+		IS_LOCKED = true
+		print("LOCKED")
+func unlock():
+	if IS_LOCKED:
+		AudioServer.unlock()
+		IS_LOCKED = false
+#		var time_since = AudioServer.get_time_since_last_mix()
+#		var time_until = AudioServer.get_time_to_next_mix()
+#		var time_latency = AudioServer.get_output_latency()
+#		var time_diff = time_since + time_until
+#		print("UNLOCKED: %s %f %f"%[time_since, time_until, time_diff])
+		print("UNLOCKED")
+
+func _process(delta):
+	
+	
+#	var time_since = AudioServer.get_time_since_last_mix()
+#	var time_until = AudioServer.get_time_to_next_mix()
+#	var time_delay = AudioServer.get_output_latency()
+#	print("UNLOCKED: %s %f %f"%[AudioServer.get_time_to_next_mix(), AudioServer.get_time_to_next_mix(), AudioServer.get_time_to_next_mix()])
+	
+	var time_since = AudioServer.get_time_since_last_mix()
+	var time_until = AudioServer.get_time_to_next_mix()
+	var time_latency = AudioServer.get_output_latency()
+	var time_diff = time_since + time_until
+#	print("UNLOCKED: %s %f %f"%[time_since, time_until, time_diff])
+
+#	if time_until > 0:
+#		print(time_until)
+
+#	if !SOUND_IMMEDIATE_STREAM.playing:
+#		if !IS_LOCKED:
+#			print(time_until)
+#		lock()
+#	if !IS_LOCKED:
+#		lock()
+#	var time_begin = OS.get_ticks_usec()
+#	var time_delay = AudioServer.get_time_to_next_mix() + AudioServer.get_output_latency()
+##	if time_delay <= 0:
+##		print(time_delay)
+##		AudioServer.lock()
+#	print(AudioServer.get_time_since_last_mix())
+#	AudioServer.unlock()
+	
 func play_sound(sound: String, position, volume : float, bus : String, pitch_rnd = 0.0):
 	var node = null
 	if ".MID" in sound:

@@ -9,6 +9,7 @@
 material = ExtResource( 3 )
 margin_right = 32.0
 margin_bottom = 32.0
+focus_mode = 0
 mouse_default_cursor_shape = 2
 keep_pressed_outside = true
 texture_normal = ExtResource( 1 )

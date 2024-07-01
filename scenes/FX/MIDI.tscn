@@ -4,6 +4,5 @@
 
 [node name="MidiPlayer" type="Node"]
 script = ExtResource( 1 )
-soundfont = "res://audio/WinGroove.sf2"
 
 [connection signal="finished" from="." to="." method="_on_MidiPlayer_finished"]

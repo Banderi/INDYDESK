@@ -337,6 +337,7 @@ var CONST_DATA = {
 	"zones": [],
 	"puzzles": [],
 	"characters": {},
+	"weapons": [],
 }
 func assert_marker(marker, size = 4):
 	var found = FILE.get_buffer(size).get_string_from_ascii()
@@ -383,6 +384,9 @@ func load_daw(file_path):
 						"flags": FILE.get_32(),
 						"bmp": FILE.get_buffer(1024)
 					})
+					var tile_id = CONST_DATA.tiles.size() - 1
+					if CONST_DATA.tiles[tile_id].flags & TileFlags.is_weapon:
+						CONST_DATA.weapons.push_back(tile_id)
 			"ZONE": # zones data
 				for i in FILE.get_16():
 					assert_marker("IZON")
@@ -1379,8 +1383,15 @@ func speech_bubble(tile, text):
 	SPEECH_PLAYING.TILE = tile
 	UI_ROOT.add_child(SPEECH_PLAYING)
 	SPEECH_PLAYING.set_text(text)
-func play_sound(sound_id):
-	Sounds.play_sound(Game.CONST_DATA.sounds[sound_id],null,1.0,"Master")
+func play_sound(sound_id, from = 0.0):
+#	Sounds.unlock()
+#	var time_begin = OS.get_ticks_usec()
+#	var time_delay = AudioServer.get_time_to_next_mix() + AudioServer.get_output_latency()
+#	print(time_delay)
+	
+	Sounds.play_sound(Game.CONST_DATA.sounds[sound_id], null, 1.0, "Master", 0.0)
+#	Sounds.play_sound_immediate(Game.CONST_DATA.sounds[sound_id], 1.0, "Master", 0.0, from + max(time_delay,0))
+#	Sounds.play_sound_immediate(Game.CONST_DATA.sounds[sound_id], 1.0, "Master")
 
 # Game world data
 const GAME_DATA_DUMMY = {
@@ -1393,7 +1404,7 @@ const GAME_DATA_DUMMY = {
 	"current_zone": null,
 	"unk2": null,
 	"unk3": null,
-	"item_selected": null,
+	"selected_weapon": null,
 	"hero_x_coord": null,
 	"hero_y_coord": null,
 	"unk4": null,
@@ -1555,7 +1566,7 @@ func load_game(file_path):
 	GAME_DATA.current_zone = FILE.get_16()
 	GAME_DATA.unk2 = FILE.get_16()
 	GAME_DATA.unk3 = FILE.get_16()
-	GAME_DATA.item_selected = FILE.get_16()
+	GAME_DATA.selected_weapon = FILE.get_16()
 	GAME_DATA.hero_x_coord = FILE.get_16()
 	GAME_DATA.hero_y_coord = FILE.get_16()
 	GAME_DATA.unk4 = FILE.get_16()
@@ -1575,6 +1586,7 @@ func load_game(file_path):
 	yield(fadein(),"completed")
 
 var INV_UI_LIST = null
+var INV_SELECTED = null
 onready var INV_ITEM_SCN = load("res://scenes/InventoryItem.tscn")
 func add_item(tile_id):
 	pass
@@ -1583,12 +1595,28 @@ func remove_item(inv_index):
 func clear_inventory():
 	for n in INV_UI_LIST.get_children():
 		n.queue_free()
+func equip_item(tile_id):
+	if !(tile_id in CONST_DATA.weapons):
+#		play_sound(7)
+		play_sound(8)
+#		print(2)
+#		Sounds.SOUND_IMMEDIATE_STREAM.play()
+		return false
+	if tile_id != null:
+		INV_SELECTED.item_node.tile_id = tile_id
+		INV_SELECTED.show()
+	else:
+		INV_SELECTED.hide()
+	return true
 func refresh_inventory_display():
-	for n in INV_UI_LIST.get_children():
-		n.queue_free()
+	clear_inventory()
 	for tile_id in GAME_DATA.inventory:
-		var item_node = INV_ITEM_SCN.instance() as TextureButton
-		item_node.texture_normal = get_sprite(tile_id)
-		item_node.set_item_name(CONST_DATA.tiles[tile_id].name)
-#		item_node.set_item_name(CONST_DATA.tiles[525].name)
+		var item_node = INV_ITEM_SCN.instance()
+		item_node.tile_id = tile_id
 		INV_UI_LIST.add_child(item_node)
+	
+	# equipped weapon
+	if GAME_DATA.selected_weapon != 65535:
+		equip_item(CONST_DATA.weapons[GAME_DATA.selected_weapon])
+	else:
+		equip_item(null)
